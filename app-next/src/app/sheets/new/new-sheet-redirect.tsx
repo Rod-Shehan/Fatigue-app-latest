@@ -1,0 +1,87 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createSheetOfflineFirst } from "@/lib/offline-api";
+import { Button } from "@/components/ui/button";
+
+const EMPTY_DAY = () => ({
+  day_label: "",
+  date: "",
+  truck_rego: "",
+  destination: "",
+  start_kms: null,
+  end_kms: null,
+  work_time: Array(48).fill(false),
+  breaks: Array(48).fill(false),
+  non_work: Array(48).fill(false),
+});
+
+function getThisWeekSunday() {
+  const today = new Date();
+  const day = today.getDay();
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - day);
+  return sunday.toISOString().split("T")[0];
+}
+
+export function NewSheetRedirect() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createSheetOfflineFirst({
+        driver_name: "",
+        second_driver: "",
+        driver_type: "solo",
+        destination: "",
+        week_starting: getThisWeekSunday(),
+        days: Array(7)
+          .fill(null)
+          .map(() => EMPTY_DAY()),
+        status: "draft",
+      }),
+    onSuccess: (sheet) => {
+      queryClient.invalidateQueries({ queryKey: ["sheets"] });
+      router.replace(`/sheets/${sheet.id}`);
+    },
+  });
+
+  useEffect(() => {
+    createMutation.mutate();
+  }, []);
+
+  const errBody = createMutation.error && (createMutation.error as Error & { body?: { sheet_id?: string } }).body;
+  const sheetId = errBody?.sheet_id;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 px-4">
+      {createMutation.isPending && (
+        <p className="text-slate-500">Creating new sheet…</p>
+      )}
+      {createMutation.isSuccess && <p className="text-slate-500">Redirecting…</p>}
+      {createMutation.isError && (
+        <div className="max-w-md text-center space-y-3">
+          <p className="text-red-600 font-medium">
+            {createMutation.error instanceof Error ? createMutation.error.message : "Failed to create sheet."}
+          </p>
+          <p className="text-sm text-slate-500">
+            Complete and sign this week&apos;s sheet before starting next week.
+          </p>
+          {sheetId && (
+            <Link href={`/sheets/${sheetId}`}>
+              <Button variant="outline" className="mt-2">
+                Open this week&apos;s sheet
+              </Button>
+            </Link>
+          )}
+          <Link href="/sheets">
+            <Button variant="ghost">Back to sheets</Button>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,84 @@
+// Prisma schema – Driver Fatigue Log (no Base44)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  role          String?   // "manager" = can access manager area (must be added by a manager first)
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  fatigueSheets FatigueSheet[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@id([identifier, token])
+}
+
+model Driver {
+  id             String   @id @default(cuid())
+  name           String
+  licenceNumber  String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model TruckRego {
+  id        String   @id @default(cuid())
+  label     String   // e.g. "1ABC 234"
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model FatigueSheet {
+  id              String    @id @default(cuid())
+  driverName      String
+  secondDriver    String?
+  driverType      String    @default("solo") // "solo" | "two_up"
+  destination     String?
+  last24hBreak    String?   // YYYY-MM-DD date of last 24-hour break
+  weekStarting    String    // YYYY-MM-DD
+  days            String    // JSON array of 7 day objects
+  status          String    @default("draft") // "draft" | "completed"
+  signature       String?   // data URL
+  signedAt        DateTime?
+  createdById     String?
+  createdBy       User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,139 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getThisWeekSunday, isNextWeekOrLater } from "@/lib/weeks";
+
+function sheetToJson(row: {
+  id: string;
+  driverName: string;
+  secondDriver: string | null;
+  driverType: string;
+  destination: string | null;
+  last24hBreak: string | null;
+  weekStarting: string;
+  days: string;
+  status: string;
+  signature: string | null;
+  signedAt: Date | null;
+  createdById: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: row.id,
+    driver_name: row.driverName,
+    second_driver: row.secondDriver,
+    driver_type: row.driverType,
+    destination: row.destination,
+    last_24h_break: row.last24hBreak,
+    week_starting: row.weekStarting,
+    days: JSON.parse(row.days) as unknown[],
+    status: row.status,
+    signature: row.signature,
+    signed_at: row.signedAt?.toISOString() ?? null,
+    created_by: row.createdById,
+    created_date: row.createdAt.toISOString(),
+  };
+}
+
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const sheets = await prisma.fatigueSheet.findMany({
+      orderBy: { weekStarting: "desc" },
+      take: 50,
+    });
+    // Optional: filter by session.user.email if you store created_by as email
+    const list = sheets.map((s) => sheetToJson(s));
+    return NextResponse.json(list);
+  } catch (e) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const body = await req.json();
+    const {
+      driver_name,
+      second_driver,
+      driver_type,
+      destination,
+      week_starting,
+      days,
+      status,
+      signature,
+      signed_at,
+    } = body;
+    if (!week_starting || !Array.isArray(days)) {
+      return NextResponse.json(
+        { error: "week_starting and days required" },
+        { status: 400 }
+      );
+    }
+
+    const driverName = (driver_name ?? "").trim() || "Draft";
+    if (isNextWeekOrLater(week_starting)) {
+      if (!driverName || driverName === "Draft") {
+        return NextResponse.json(
+          { error: "Set the driver name before creating a sheet for next week." },
+          { status: 400 }
+        );
+      }
+      const thisWeekSunday = getThisWeekSunday();
+      const thisWeekSheet = await prisma.fatigueSheet.findFirst({
+        where: {
+          weekStarting: thisWeekSunday,
+          driverName,
+        },
+      });
+      if (!thisWeekSheet) {
+        return NextResponse.json(
+          {
+            error: `Complete and sign the sheet for the week of ${thisWeekSunday} before starting the next week.`,
+            code: "PREVIOUS_WEEK_INCOMPLETE",
+            week_starting: thisWeekSunday,
+          },
+          { status: 400 }
+        );
+      }
+      if (thisWeekSheet.status !== "completed") {
+        return NextResponse.json(
+          {
+            error: `Complete and sign the sheet for the week of ${thisWeekSunday} before starting the next week.`,
+            code: "PREVIOUS_WEEK_INCOMPLETE",
+            week_starting: thisWeekSunday,
+            sheet_id: thisWeekSheet.id,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const sheet = await prisma.fatigueSheet.create({
+      data: {
+        driverName,
+        secondDriver: second_driver ?? null,
+        driverType: driver_type ?? "solo",
+        destination: destination ?? null,
+        last24hBreak: body.last_24h_break ?? null,
+        weekStarting: week_starting,
+        days: JSON.stringify(days),
+        status: status ?? "draft",
+        signature: signature ?? null,
+        signedAt: signed_at ? new Date(signed_at) : null,
+        createdById: (session?.user as { id?: string })?.id ?? null,
+      },
+    });
+    return NextResponse.json(sheetToJson(sheet));
+  } catch (e) {
+    console.error("Sheet create error:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to create sheet" },
+      { status: 500 }
+    );
+  }
+}
