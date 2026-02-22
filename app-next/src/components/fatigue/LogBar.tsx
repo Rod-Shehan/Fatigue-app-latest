@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Briefcase, Coffee, Moon, Square } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const WORK_TARGET_MINUTES = 5 * 60;
 const BREAK_TARGET_MINUTES = 20;
@@ -47,11 +48,14 @@ export default function LogBar({
   currentDayIndex,
   weekStarting,
   onLogEvent,
+  onEndShiftRequest,
 }: {
   days: DayData[];
   currentDayIndex: number;
   weekStarting: string;
   onLogEvent: (dayIndex: number, type: string) => void;
+  /** When provided, End Shift (second tap) calls this instead of onLogEvent so the parent can show end km input. */
+  onEndShiftRequest?: (dayIndex: number) => void;
 }) {
   const [pendingType, setPendingType] = useState<string | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,6 +128,10 @@ export default function LogBar({
 
     if (pendingType === type) {
       clearPending();
+      if (type === "stop" && onEndShiftRequest) {
+        onEndShiftRequest(currentDayIndex);
+        return;
+      }
       const warning = getBreakWarning(type);
       if (warning && !window.confirm(`⚠️ ${warning}\n\nLog work anyway?`)) return;
       onLogEvent(currentDayIndex, type);
@@ -136,13 +144,13 @@ export default function LogBar({
   };
 
   const barContent = (
-    <div className="max-w-[1400px] mx-auto space-y-2">
+    <div className="space-y-2">
       <div className="flex items-center gap-2 text-base">
-        <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Today</span>
-        <span className="font-bold text-slate-800 tabular-nums">{currentDayLabel}</span>
+        <span className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold">Today</span>
+        <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">{currentDayLabel}</span>
         {currentType && (
-          <span className="text-slate-500">
-            — current activity: <span className="font-semibold text-slate-700">{currentType}</span>
+          <span className="text-slate-500 dark:text-slate-400">
+            — current activity: <span className="font-semibold text-slate-700 dark:text-slate-200">{currentType}</span>
           </span>
         )}
       </div>
@@ -155,7 +163,7 @@ export default function LogBar({
             <button
               type="button"
               onClick={() => handleLog(nextWorkBreak)}
-              className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 animate-pulse" : ""}`}
+              className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
             >
               {React.createElement(EVENT_ICONS[nextWorkBreak], { className: "w-8 h-8" })}
               {isPending ? "Tap again to log" : EVENT_LABELS[nextWorkBreak]}
@@ -172,7 +180,7 @@ export default function LogBar({
               type="button"
               onClick={() => handleLog(type)}
               disabled={isDisabled}
-              className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl text-white text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 animate-pulse" : ""}`}
+              className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl text-white text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
             >
               {React.createElement(EVENT_ICONS[type], { className: "w-5 h-5" })}
               {isPending ? "Tap again to log" : EVENT_LABELS[type]}
@@ -184,16 +192,16 @@ export default function LogBar({
       {contextualBar && (
         <div className="pt-1">
           <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               {contextualBar.type === "work" && "WORK — BREAK DUE BEFORE 5H"}
               {contextualBar.type === "break" && "Break — 20 min"}
             </span>
-            <span className="text-xs font-mono text-slate-600 tabular-nums">
+            <span className="text-xs font-mono text-slate-600 dark:text-slate-300 tabular-nums">
               {formatCountdown(contextualBar.elapsed)} / {contextualBar.label}
-              <span className="text-slate-400 ml-1">→ {formatCountdown(contextualBar.remaining)} left</span>
+              <span className="text-slate-400 dark:text-slate-500 ml-1">→ {formatCountdown(contextualBar.remaining)} left</span>
             </span>
           </div>
-          <div className="relative h-8 bg-slate-100 rounded-full overflow-hidden">
+          <div className="relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
               style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
@@ -223,11 +231,17 @@ export default function LogBar({
   return (
     <>
       {/* In-flow spacer so title/save row sit below the fixed bar; same structure = same height */}
-      <div className="max-w-[1400px] mx-auto px-4 py-3 invisible pointer-events-none select-none" aria-hidden>
-        {barContent}
+      <div className="max-w-[1400px] mx-auto px-4 py-3 invisible pointer-events-none select-none flex items-start gap-3" aria-hidden>
+        <div className="flex-1 min-w-0">{barContent}</div>
+        <div className="w-9 h-9 shrink-0" />
       </div>
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 shadow-md px-4 py-3">
-        {barContent}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-md px-4 py-3">
+        <div className="max-w-[1400px] mx-auto flex items-start gap-3">
+          <div className="flex-1 min-w-0">{barContent}</div>
+          <div className="shrink-0 pt-0.5">
+            <ThemeToggle />
+          </div>
+        </div>
       </div>
     </>
   );

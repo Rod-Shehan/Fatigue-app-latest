@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-8">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center text-center">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-slate-100 flex items-center justify-center mb-4 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-slate-600 flex items-center justify-center mb-4 shadow-sm text-white dark:text-slate-200">
             <LogIn className="w-6 h-6 text-white dark:text-slate-900" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">

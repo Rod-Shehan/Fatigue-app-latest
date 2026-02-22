@@ -104,7 +104,7 @@ export default function SignatureDialog({
               : "Please sign below to confirm this weekly record is accurate."}
           </DialogDescription>
         </DialogHeader>
-        <div className="border-2 border-slate-300 rounded-lg overflow-hidden bg-white relative" style={{ touchAction: "none" }}>
+        <div className="border-2 border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden bg-white dark:bg-slate-800 relative" style={{ touchAction: "none" }}>
           <canvas
             ref={canvasRef}
             width={460}

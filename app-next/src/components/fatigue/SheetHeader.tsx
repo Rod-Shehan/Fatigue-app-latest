@@ -54,13 +54,15 @@ export default function SheetHeader({
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mr-2">Driver Type</Label>
-        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+        <div className="flex rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
           <button
             type="button"
             disabled={readOnly}
             onClick={() => handleChange("driver_type", "solo")}
             className={`px-4 py-1.5 text-xs font-bold transition-colors ${
-              driverType === "solo" ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
+              driverType === "solo"
+                ? "bg-slate-900 dark:bg-slate-600 text-white dark:text-slate-100"
+                : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600"
             }`}
           >
             Solo
@@ -69,8 +71,10 @@ export default function SheetHeader({
             type="button"
             disabled={readOnly}
             onClick={() => handleChange("driver_type", "two_up")}
-            className={`px-4 py-1.5 text-xs font-bold transition-colors border-l border-slate-200 ${
-              driverType === "two_up" ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
+            className={`px-4 py-1.5 text-xs font-bold transition-colors border-l border-slate-200 dark:border-slate-600 ${
+              driverType === "two_up"
+                ? "bg-slate-900 dark:bg-slate-600 text-white dark:text-slate-100"
+                : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600"
             }`}
           >
             Two-Up
@@ -158,11 +162,11 @@ export default function SheetHeader({
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Last 24 Hour Break</Label>
           {last24hSet ? (
-            <div className="h-9 flex flex-col justify-center rounded-md border border-slate-200 bg-slate-50 px-3">
-              <p className="text-sm font-medium text-slate-800 font-mono">
+            <div className="h-9 flex flex-col justify-center rounded-md border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-3">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200 font-mono">
                 {formatLast24hBreakDate(sheetData.last_24h_break!)}
               </p>
-              <p className="text-[10px] text-slate-400">Locked for this sheet</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">Locked for this sheet</p>
             </div>
           ) : (
             <div className="relative">
@@ -186,7 +190,7 @@ export default function SheetHeader({
                 size="sm"
                 disabled={readOnly}
                 onClick={() => last24hDateInputRef.current?.showPicker?.() ?? last24hDateInputRef.current?.click()}
-                className="h-9 w-full justify-start gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 font-medium"
+                className="h-9 w-full justify-start gap-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50 hover:border-amber-400 dark:hover:border-amber-600 font-medium"
               >
                 <Calendar className="w-4 h-4 text-amber-600" />
                 Set last 24h break

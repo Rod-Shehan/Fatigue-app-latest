@@ -188,7 +188,7 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
                 type: "violation",
                 iconKey: "Coffee",
                 day: dayLabel,
-                message: `Break at ${new Date(pendingBreakStart!).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })} — 20 min break for ea 5 hours work time - 10 min minimum x 2`,
+                message: `20 min break for 5h work not met`,
               });
             } else {
               workMinsSinceBreak = 0;
@@ -202,7 +202,7 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
               type: "violation",
               iconKey: "AlertTriangle",
               day: dayLabel,
-              message: "More than 5 hrs work without a valid break — 20 min break for ea 5 hours work time - 10 min minimum x 2",
+              message: "More than 5h work without valid break",
             });
             workMinsSinceBreak = 0;
           }
@@ -264,7 +264,7 @@ function checkSoloRules(
         type: "violation",
         iconKey: "Moon",
         day: dayLabel,
-        message: `Need ≥7 continuous hrs non-work time (longest recorded: ${longestNonWork}h)`,
+        message: "Need ≥7 continuous hrs non-work",
       });
     }
   });
@@ -314,7 +314,7 @@ function checkSoloRules(
             type: "violation",
             iconKey: "Clock",
             day: getLabel(dayIdx),
-            message: `More than 17 hrs elapsed between 7-hr rest breaks (24h non-work resets this rule)`,
+            message: "More than 17h between 7-hr rest breaks",
           });
           break;
         }
@@ -382,7 +382,7 @@ function checkTwoUpRules(days: ComplianceDayData[], results: ComplianceCheckResu
           type: "violation",
           iconKey: "Moon",
           day: getLabel(end - 1),
-          message: `Need ≥7 hrs non-work in any rolling 24 hrs (this window: ${nonWorkHrs}h non-work)`,
+          message: "Need ≥7h non-work in rolling 24h",
         });
         break;
       }
@@ -482,7 +482,7 @@ export function runComplianceChecks(
           type: "violation",
           iconKey: "TrendingUp",
           day: "14-day",
-          message: `${segmentWork}h work in this period — exceeds 168h limit (14-day rule resets after ≥48h continuous non-work)`,
+          message: "14-day work exceeds 168h",
         });
       } else if (segmentWork > 140) {
         results.push({
@@ -499,7 +499,7 @@ export function runComplianceChecks(
         type: "violation",
         iconKey: "TrendingUp",
         day: "14-day",
-        message: `${thisWeekWork}h work this week alone exceeds 168h/14-day limit`,
+        message: "14-day work exceeds 168h",
       });
     } else if (thisWeekWork > 84) {
       results.push({

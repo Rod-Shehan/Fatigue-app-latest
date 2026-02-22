@@ -88,10 +88,5 @@ The frontend uses a small **API client** (`src/lib/api.ts`) that calls these rou
 
 ## Completing the migration
 
-1. **Run the new app** from `app-next/` and confirm auth, drivers, and sheets work.
-2. **Copy any missing UI** from `src/components` (and `src/pages`) into `app-next/src/components` and `app-next/src/app/...` as needed; update imports to `@/components` and the new API client.
-3. **Remove Base44** from the old app when you are ready, or delete the root Vite app and move `app-next` contents to the repo root (then rename `app-next` → `.` and adjust any paths).
-
-## Rollback
-
-The original Vite + Base44 app is unchanged in the repo root. Keep it until the Next.js app is fully validated.
+1. **Run the app** from `app-next/` and confirm auth, drivers, and sheets work.
+2. Add or adjust any UI in `app-next/src/components` and `app-next/src/app/...` as needed; use the API client in `@/lib/api.ts`.

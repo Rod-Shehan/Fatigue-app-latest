@@ -7,7 +7,8 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, UserPlus, Loader2, CheckCircle2 } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
+import { UserPlus, Loader2, CheckCircle2 } from "lucide-react";
 
 export function AddManagersView() {
   const [email, setEmail] = useState("");
@@ -28,24 +29,22 @@ export function AddManagersView() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-md mx-auto px-4 py-8 md:py-12">
-        <Link href="/manager">
-          <Button variant="ghost" size="icon" className="rounded-full shrink-0 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-        </Link>
-        <div className="flex items-center gap-2 mb-2">
-          <UserPlus className="w-5 h-5 text-slate-500" />
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Add Managers</h1>
-        </div>
-        <p className="text-sm text-slate-500 mb-6">
+        <PageHeader
+          backHref="/sheets"
+          backLabel="Your Sheets"
+          title="Add Managers"
+          subtitle="Create manager accounts for sign-in"
+          icon={<UserPlus className="w-5 h-5" />}
+        />
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
           Create a user account. They can sign in on the login page with this email and the app
           password, then use &quot;Sign in as Manager&quot; to open the Manager page.
         </p>
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4"
+          className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4"
         >
           <div className="space-y-2">
             <Label
@@ -94,7 +93,7 @@ export function AddManagersView() {
           )}
           <Button
             type="submit"
-            className="w-full h-9 bg-slate-900 hover:bg-slate-800 text-white font-semibold gap-2"
+            className="w-full h-9 bg-slate-900 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white dark:text-slate-100 font-semibold gap-2"
             disabled={createMutation.isPending || !email.trim()}
           >
             {createMutation.isPending ? (

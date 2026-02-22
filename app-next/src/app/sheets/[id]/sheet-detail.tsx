@@ -12,9 +12,19 @@ import {
 } from "@/lib/offline-api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Save, FileText, ArrowLeft, Loader2, CheckCircle2, ScrollText, ChevronDown, XCircle, Download, LayoutDashboard } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Save, FileText, Loader2, CheckCircle2, ScrollText, ChevronDown, XCircle, Download, LayoutDashboard, Square } from "lucide-react";
 import { toPng } from "html-to-image";
 import { motion } from "framer-motion";
+import { PageHeader } from "@/components/PageHeader";
 import SheetHeader from "@/components/fatigue/SheetHeader";
 import DayEntry from "@/components/fatigue/DayEntry";
 import CompliancePanel from "@/components/fatigue/CompliancePanel";
@@ -24,6 +34,7 @@ import { deriveDaysWithRollover, applyLast24hBreakNonWorkRule } from "@/componen
 import { runComplianceChecks } from "@/lib/compliance";
 import { getSheetDayDateString, getTodayLocalDateString } from "@/lib/weeks";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
+import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
 
 const EMPTY_DAY = (): DayData => ({
   day_label: "",
@@ -85,10 +96,14 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   const [showSaveMenu, setShowSaveMenu] = useState(false);
+  const [endShiftDialog, setEndShiftDialog] = useState<{ dayIndex: number } | null>(null);
+  const [endShiftEndKms, setEndShiftEndKms] = useState("");
+  const [endShiftError, setEndShiftError] = useState<string | null>(null);
+  const sheetDataRef = useRef(sheetData);
+  sheetDataRef.current = sheetData;
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveMenuRef = useRef<HTMLDivElement>(null);
   const dayCardsRef = useRef<HTMLDivElement>(null);
-  const [isExporting, setIsExporting] = useState(false);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -250,8 +265,103 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     });
   }, []);
 
+  const handleEndShiftRequest = useCallback(async (dayIndex: number) => {
+    const days = sheetDataRef.current.days;
+    const day = days[dayIndex];
+    const startKms = day?.start_kms;
+    if (startKms == null || (typeof startKms === "number" && Number.isNaN(startKms))) {
+      window.alert("Please enter start km for today before ending the shift.");
+      return;
+    }
+    const rego = (day?.truck_rego ?? "").trim();
+    let serverMaxEndKms: number | null = null;
+    if (rego) {
+      try {
+        const res = await api.sheets.regoMaxEndKms(rego);
+        serverMaxEndKms = res.maxEndKms;
+      } catch {
+        // Offline: validate with local data only when confirming
+      }
+    }
+    const minAllowed = getMinAllowedStartKms(days, dayIndex, rego, serverMaxEndKms);
+    if (minAllowed != null && startKms < minAllowed) {
+      window.alert(
+        `Start km (${startKms}) cannot be lower than the last recorded end km for this rego (${minAllowed}). Please correct start km on the day card first.`
+      );
+      return;
+    }
+    setEndShiftError(null);
+    setEndShiftEndKms(String(sheetDataRef.current.days[dayIndex]?.end_kms ?? ""));
+    setEndShiftDialog({ dayIndex });
+  }, []);
+
+  const handleEndShiftConfirm = useCallback(async () => {
+    if (endShiftDialog == null) return;
+    setEndShiftError(null);
+    const dayIndex = endShiftDialog.dayIndex;
+    const trimmed = endShiftEndKms.trim();
+    if (trimmed === "") {
+      setEndShiftError("End km is required.");
+      return;
+    }
+    const endKmsParsed = Number(trimmed);
+    if (Number.isNaN(endKmsParsed) || endKmsParsed < 0) {
+      setEndShiftError("Enter a valid end km (0 or greater).");
+      return;
+    }
+    const days = sheetDataRef.current.days;
+    const day = days[dayIndex];
+    const startKms = day?.start_kms ?? null;
+    const rego = (day?.truck_rego ?? "").trim();
+    let serverMaxEndKms: number | null = null;
+    if (rego) {
+      try {
+        const res = await api.sheets.regoMaxEndKms(rego);
+        serverMaxEndKms = res.maxEndKms;
+      } catch {
+        // Offline or error: validate with local data only
+      }
+    }
+    const validation = validateDayKms(days, dayIndex, rego, startKms, endKmsParsed, serverMaxEndKms);
+    if (!validation.valid) {
+      setEndShiftError(validation.message ?? "Invalid km.");
+      return;
+    }
+    setSheetData((prev) => {
+      const newDays = [...prev.days];
+      const d = newDays[dayIndex];
+      const events = d.events || [];
+      const newEvent = { time: new Date().toISOString(), type: "stop" };
+      const newEvents = [...events, newEvent];
+      newDays[dayIndex] = { ...d, end_kms: endKmsParsed, events: newEvents };
+      const withGrids = deriveDaysWithRollover(newDays, prev.week_starting);
+      return { ...prev, days: applyLast24hBreakNonWorkRule(withGrids, prev.week_starting, prev.last_24h_break || undefined) };
+    });
+    setIsDirty(true);
+    setEndShiftDialog(null);
+    setEndShiftEndKms("");
+    getCurrentPosition(BEST_EFFORT_OPTIONS).then((loc) => {
+      if (!loc) return;
+      setSheetData((prev) => {
+        const newDays = [...prev.days];
+        const d = newDays[dayIndex];
+        const events = [...(d.events || [])];
+        const last = events[events.length - 1];
+        if (last) events[events.length - 1] = { ...last, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
+        newDays[dayIndex] = { ...d, events };
+        return { ...prev, days: newDays };
+      });
+      setIsDirty(true);
+    });
+  }, [endShiftDialog, endShiftEndKms]);
+
   const handleSave = () => {
     setShowSaveMenu(false);
+    const kmError = validateSheetKms(sheetData.days);
+    if (kmError) {
+      window.alert(kmError);
+      return;
+    }
     saveMutation.mutate({
       driver_name: sheetData.driver_name,
       second_driver: sheetData.second_driver,
@@ -268,6 +378,11 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
 
   const handleSaveAndComplete = () => {
     setShowSaveMenu(false);
+    const kmError = validateSheetKms(sheetData.days);
+    if (kmError) {
+      window.alert(kmError);
+      return;
+    }
     setShowSignatureDialog(true);
   };
 
@@ -279,69 +394,6 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [showSaveMenu]);
-
-  const handleExportPDF = async () => {
-    const el = dayCardsRef.current;
-    if (!el) return;
-    setIsExporting(true);
-    try {
-      const dataUrl = await toPng(el, {
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        cacheBust: true,
-      });
-      const img = new Image();
-      img.src = dataUrl;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Image load failed"));
-      });
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = 210;
-      const pageH = 297;
-      const margin = 10;
-      const usableW = pageW - 2 * margin;
-      const usableH = pageH - 2 * margin;
-      const pxPerMm = 96 / 25.4;
-      const pageWpx = Math.round(usableW * pxPerMm);
-      const pageHpx = Math.round(usableH * pxPerMm);
-      const scale = pageWpx / img.naturalWidth;
-      const scaledHpx = img.naturalHeight * scale;
-      if (scaledHpx <= pageHpx) {
-        const wMm = usableW;
-        const hMm = scaledHpx / pxPerMm;
-        pdf.addImage(dataUrl, "PNG", margin, margin, wMm, hMm);
-      } else {
-        const numPages = Math.ceil(scaledHpx / pageHpx);
-        const sliceHpx = pageHpx;
-        const sliceSrcH = sliceHpx / scale;
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = Math.ceil(sliceSrcH);
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas 2d not available");
-        for (let i = 0; i < numPages; i++) {
-          if (i > 0) pdf.addPage();
-          const sy = i * sliceSrcH;
-          const sh = Math.min(sliceSrcH, img.naturalHeight - sy);
-          canvas.height = Math.ceil(sh);
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, sy, img.naturalWidth, sh, 0, 0, img.naturalWidth, sh);
-          const pageDataUrl = canvas.toDataURL("image/png");
-          const hMm = (sh * scale) / pxPerMm;
-          pdf.addImage(pageDataUrl, "PNG", margin, margin, usableW, hMm);
-        }
-      }
-      const timeStamp = new Date().toISOString().slice(0, 16).replace("T", "_").replace(/:/g, "");
-      pdf.save(`fatigue-day-tiles-${(sheetData.driver_name || "sheet").replace(/\s+/g, "-")}-${timeStamp}.pdf`);
-    } catch (err) {
-      console.error("Export PDF failed:", err);
-      alert("Could not export PDF. Try again.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleSignatureConfirm = (signatureDataUrl: string) => {
     const signedAt = new Date().toISOString();
@@ -363,41 +415,39 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
 
   if (isLoading || !sheet) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-6">
       {sheetData.status !== "completed" && (
-        <LogBar days={sheetData.days} currentDayIndex={currentDayIndex} weekStarting={sheetData.week_starting} onLogEvent={handleLogEvent} />
+        <LogBar
+          days={sheetData.days}
+          currentDayIndex={currentDayIndex}
+          weekStarting={sheetData.week_starting}
+          onLogEvent={handleLogEvent}
+          onEndShiftRequest={handleEndShiftRequest}
+        />
       )}
       <div className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href="/sheets">
-              <Button variant="ghost" size="icon" className="rounded-full shrink-0">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">
-                <FileText className="w-5 h-5 shrink-0" />
-                Fatigue Record
-              </h1>
-              <p className="text-xs text-slate-400">WA Commercial Driver Fatigue Management</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+        <PageHeader
+          backHref="/sheets"
+          backLabel="Your Sheets"
+          title="Fatigue Record"
+          subtitle="WA Commercial Driver Fatigue Management"
+          icon={<FileText className="w-5 h-5" />}
+          actions={
+          <>
             <button
               type="button"
               onClick={scrollToCompliance}
               className={`inline-flex items-center gap-2 h-9 rounded-md border px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${
                 hasComplianceViolations
-                  ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                  : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50"
+                  : "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-800/50"
               }`}
               title={hasComplianceViolations ? "View compliance — issues found" : "View compliance — OK"}
               aria-label={hasComplianceViolations ? "Compliance: issues found — jump to details" : "Compliance: OK — jump to details"}
@@ -423,22 +473,18 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
             )}
             <Link
               href="/manager"
-              className="inline-flex items-center justify-center gap-1.5 h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               Manager
             </Link>
             <Link
               href={`/sheets/${sheetId}/shift-log`}
-              className="inline-flex items-center justify-center gap-1.5 h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <ScrollText className="w-3.5 h-3.5" />
               Shift Log
             </Link>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={isExporting} className="text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50">
-              {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              Export PDF
-            </Button>
             {sheetData.status === "completed" && (
               <Badge variant="outline" className="border-emerald-300 text-emerald-600 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" /> Completed
@@ -466,19 +512,19 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showSaveMenu ? "rotate-180" : ""}`} />
                   </Button>
                   {showSaveMenu && (
-                    <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                    <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-lg">
                       <button
                         type="button"
                         onClick={handleSave}
                         disabled={saveMutation.isPending}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
                       >
                         <Save className="w-3.5 h-3.5" /> Save draft
                       </button>
                       <button
                         type="button"
                         onClick={handleSaveAndComplete}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-emerald-700 hover:bg-emerald-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/50"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Save & mark complete
                       </button>
@@ -497,13 +543,14 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                 </Button>
               )}
             </div>
-          </div>
-        </div>
+          </>
+          }
+        />
 
         {saveMutation.isError &&
           (saveMutation.error as Error & { body?: { code?: string; sheet_id?: string } }).body?.code ===
             "PREVIOUS_WEEK_INCOMPLETE" && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 p-4 flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-amber-800">
                 {saveMutation.error instanceof Error ? saveMutation.error.message : "Save failed."}
               </p>
@@ -511,7 +558,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                 <Link
                   href={`/sheets/${(saveMutation.error as Error & { body?: { sheet_id?: string } }).body!.sheet_id}`}
                 >
-                  <Button variant="outline" size="sm" className="border-amber-300 text-amber-800 hover:bg-amber-100">
+                  <Button variant="outline" size="sm" className="border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50">
                     Open that sheet
                   </Button>
                 </Link>
@@ -521,7 +568,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
 
         <div className="flex flex-col lg:flex-row gap-6">
           <div ref={dayCardsRef} className="flex-1 space-y-4">
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 md:p-5">
               <SheetHeader sheetData={sheetData} onChange={handleHeaderChange} />
             </motion.div>
             {sheetData.days.map((day, idx) => (
@@ -538,8 +585,8 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
           </div>
           <div id="compliance-check" className="w-full lg:w-80 shrink-0 scroll-mt-24">
             <div className="lg:sticky lg:top-6 space-y-4">
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                <h2 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">Compliance Check</h2>
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+                <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 uppercase tracking-wider">Compliance Check</h2>
                 <CompliancePanel
                   days={sheetData.days}
                   driverType={sheetData.driver_type}
@@ -550,11 +597,11 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                 />
               </motion.div>
               {sheetData.signature && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-xl border border-emerald-200 shadow-sm p-4">
-                  <h2 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm p-4">
+                  <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 uppercase tracking-wider flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Driver Signature
                   </h2>
-                  <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                  <div className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800">
                     <img src={sheetData.signature} alt="Driver signature" className="w-full h-auto" />
                   </div>
                   {sheetData.signed_at && (
@@ -583,6 +630,49 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
         onCancel={() => setShowSignatureDialog(false)}
         driverName={sheetData.driver_name}
       />
+      <Dialog open={!!endShiftDialog} onOpenChange={(open) => !open && setEndShiftDialog(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Square className="w-5 h-5" />
+              End shift
+            </DialogTitle>
+            <DialogDescription>
+              Enter end odometer. This will log End Shift for today and switch to non-work time. Start km and end km are required; end km must not be lower than any previous entry for this rego.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <Label htmlFor="end-shift-kms" className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              End km (required)
+            </Label>
+            <Input
+              id="end-shift-kms"
+              type="number"
+              min={0}
+              placeholder="e.g. 12345"
+              value={endShiftEndKms}
+              onChange={(e) => { setEndShiftEndKms(e.target.value); setEndShiftError(null); }}
+              className="font-mono"
+              aria-invalid={!!endShiftError}
+              aria-describedby={endShiftError ? "end-shift-error" : undefined}
+            />
+            {endShiftError && (
+              <p id="end-shift-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
+                {endShiftError}
+              </p>
+            )}
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={() => setEndShiftDialog(null)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleEndShiftConfirm} className="gap-1.5">
+                <Square className="w-3.5 h-3.5" />
+                End shift
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -245,7 +245,7 @@ export default function EventLogger({
     <div className="space-y-2">
       {currentType && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${ACTIVITY_THEME[currentType as ActivityKey]?.badge ?? "bg-slate-100"}`}>
+          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${ACTIVITY_THEME[currentType as ActivityKey]?.badge ?? "bg-slate-100 dark:bg-slate-600 dark:text-slate-200"}`}>
             {React.createElement(EVENT_CONFIG[currentType as ActivityKey]?.icon ?? Square, { className: "w-3 h-3" })}
             {EVENT_CONFIG[currentType as ActivityKey]?.label ?? currentType}
           </span>

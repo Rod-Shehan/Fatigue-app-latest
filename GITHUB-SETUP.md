@@ -25,7 +25,7 @@ Run these commands in **Command Prompt** or **PowerShell** from the **Fatigue ap
 4. Add all files, commit, and push:
    ```bat
    git add .
-   git commit -m "Add Fatigue app (Next.js + Vite original)"
+   git commit -m "Add Fatigue app (Next.js)"
    git branch -M main
    git push -u origin main
    ```

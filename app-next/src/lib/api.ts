@@ -83,6 +83,8 @@ export const api = {
   sheets: {
     list: () => fetchApi<FatigueSheet[]>("/api/sheets"),
     get: (id: string) => fetchApi<FatigueSheet>(`/api/sheets/${id}`),
+    regoMaxEndKms: (rego: string) =>
+      fetchApi<{ maxEndKms: number | null }>(`/api/rego-kms?rego=${encodeURIComponent(rego)}`),
     create: (data: Omit<FatigueSheet, "id" | "created_date">) =>
       fetchApi<FatigueSheet>("/api/sheets", { method: "POST", body: data as unknown as Record<string, unknown> }),
     update: (id: string, data: Partial<FatigueSheet>) =>

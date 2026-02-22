@@ -57,17 +57,17 @@ export function NewSheetRedirect() {
   const sheetId = errBody?.sheet_id;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 dark:bg-slate-950 px-4">
       {createMutation.isPending && (
-        <p className="text-slate-500">Creating new sheet…</p>
+        <p className="text-slate-500 dark:text-slate-400">Creating new sheet…</p>
       )}
-      {createMutation.isSuccess && <p className="text-slate-500">Redirecting…</p>}
+      {createMutation.isSuccess && <p className="text-slate-500 dark:text-slate-400">Redirecting…</p>}
       {createMutation.isError && (
         <div className="max-w-md text-center space-y-3">
-          <p className="text-red-600 font-medium">
+          <p className="text-red-600 dark:text-red-400 font-medium">
             {createMutation.error instanceof Error ? createMutation.error.message : "Failed to create sheet."}
           </p>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Complete and sign this week&apos;s sheet before starting next week.
           </p>
           {sheetId && (

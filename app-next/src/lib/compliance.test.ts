@@ -117,7 +117,7 @@ describe("compliance scenarios — what the logic produces", () => {
       non_work: nonWorkSlots(5), // only 5h non-work
     };
     const results = runComplianceChecks(days, { driverType: "two_up" });
-    const v = results.find((r) => r.message.includes("7 hrs non-work") && r.message.includes("24 hrs") && r.type === "violation");
+    const v = results.find((r) => r.message.includes("7h non-work") && r.message.includes("24h") && r.type === "violation");
     expect(v).toBeDefined();
   });
 

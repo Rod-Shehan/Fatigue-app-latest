@@ -31,14 +31,8 @@ This is the same app converted to **Next.js 14 + TypeScript + Prisma + NextAuth*
 - **NextAuth.js** (Credentials provider; add Google etc. in `src/lib/auth.ts`)
 - **TanStack Query** for client data
 
-## Copying the full Fatigue Sheet UI
+## Fatigue Sheet UI
 
-The sheet **list** and **drivers** pages are fully wired. The single-sheet **editor** (time grid, compliance panel, signature) is a simplified placeholder. To get the full editor:
-
-1. Copy from the parent app into `app-next/src/components/`:
-   - `src/components/fatigue/*` (DayEntry, TimeGrid, EventLogger, CompliancePanel, SheetHeader, SignatureDialog, LogBar)
-   - Any `src/components/ui/*` you need (Select, Badge, etc.)
-2. In `app-next/src/app/sheets/[id]/sheet-detail.tsx`, replace the placeholder with the full editor component.
-3. Use `api.sheets.get(id)`, `api.sheets.update(id, data)`, and `api.sheets.exportPdfUrl(id)` instead of the Base44 SDK.
+The sheet **list** and **drivers** pages are fully wired. The single-sheet **editor** (time grid, compliance panel, signature) lives in `src/components/fatigue/`. Use `api.sheets.get(id)`, `api.sheets.update(id, data)`, and `api.sheets.exportPdfUrl(id)` from `@/lib/api.ts`.
 
 See **MIGRATION.md** in the repo root for the full conversion guide.

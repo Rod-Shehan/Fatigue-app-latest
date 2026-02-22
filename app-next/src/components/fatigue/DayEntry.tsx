@@ -65,21 +65,21 @@ export default function DayEntry({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: dayIndex * 0.04 }}
-      className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 md:p-5"
+      className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-3 md:p-5"
     >
       <div className="flex flex-wrap items-center gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+          <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-slate-600 text-white dark:text-slate-200 flex items-center justify-center text-xs font-bold">
             {DAY_NAMES[dayIndex]?.charAt(0)}
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800">{DAY_NAMES[dayIndex]}</p>
-            <p className="text-[11px] text-slate-400 font-mono">{getDateStr()}</p>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{DAY_NAMES[dayIndex]}</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{getDateStr()}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 ml-auto">
           <div className="flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <Truck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
             <Select
               value={dayData.truck_rego?.trim() || "__none__"}
               onValueChange={(value) =>
@@ -108,7 +108,7 @@ export default function DayEntry({
             </Select>
           </div>
           <div className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+            <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
             <Input
               placeholder="Destination"
               value={dayData.destination || ""}
@@ -118,7 +118,9 @@ export default function DayEntry({
             />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-slate-400 uppercase">Start km</Label>
+            <Label className="text-[10px] text-slate-400 dark:text-slate-500 uppercase">
+              Start km{dayData.truck_rego?.trim() ? " *" : ""}
+            </Label>
             <Input
               type="number"
               placeholder="0"
@@ -128,19 +130,8 @@ export default function DayEntry({
               disabled={readOnly}
             />
           </div>
-          <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-slate-400 uppercase">End km</Label>
-            <Input
-              type="number"
-              placeholder="0"
-              value={dayData.end_kms ?? ""}
-              onChange={(e) => handleFieldChange("end_kms", e.target.value ? Number(e.target.value) : null)}
-              className="w-20 h-7 text-xs font-mono"
-              disabled={readOnly}
-            />
-          </div>
           {kmsTotal > 0 && (
-            <span className="text-[10px] font-mono text-slate-500 bg-slate-50 px-2 py-0.5 rounded">{kmsTotal} km</span>
+            <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded">{kmsTotal} km</span>
           )}
         </div>
       </div>

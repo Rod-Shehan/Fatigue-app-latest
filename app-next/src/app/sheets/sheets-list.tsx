@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type FatigueSheet } from "@/lib/api";
 import { listSheetsOfflineFirst } from "@/lib/offline-api";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/PageHeader";
 import { format } from "date-fns";
 import { Plus, FileText, Loader2, Clock, ChevronRight, Truck } from "lucide-react";
 
@@ -25,29 +26,21 @@ export function SheetsList() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-slate-100 flex items-center justify-center">
-              <Truck className="w-5 h-5 text-white dark:text-slate-900" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Driver Fatigue Log
-              </h1>
-              <p className="text-sm text-slate-400 dark:text-slate-500">WA Commercial Vehicle Fatigue Management</p>
-            </div>
-          </div>
+        <div className="mb-8">
+          <PageHeader
+            title="Driver Fatigue Log"
+            subtitle="WA Commercial Vehicle Fatigue Management"
+            icon={<Truck className="w-5 h-5" />}
+            actions={
+              <Link href="/sheets/new">
+                <Button className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white dark:text-slate-100 gap-2">
+                  <Plus className="w-4 h-4" /> Start New Week
+                </Button>
+              </Link>
+            }
+          />
         </div>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Your Sheets</h2>
-          <div className="flex gap-2 flex-wrap">
-            <Link href="/sheets/new">
-              <Button className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white gap-2">
-                <Plus className="w-4 h-4" /> Start New Week
-              </Button>
-            </Link>
-          </div>
-        </div>
+        <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6">Your Sheets</h2>
         <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
           Complete and sign the current week&apos;s sheet before starting a new one.
         </p>
@@ -58,7 +51,7 @@ export function SheetsList() {
         )}
         {!isLoading && sheets.length === 0 && (
           <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
               <FileText className="w-7 h-7 text-slate-300 dark:text-slate-500" />
             </div>
             <p className="text-slate-400 dark:text-slate-500 mb-1">No fatigue sheets yet</p>
@@ -73,7 +66,7 @@ export function SheetsList() {
             >
               <Link href={`/sheets/${sheet.id}`} className="flex items-center justify-between p-4 md:p-5">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                     <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </div>
                   <div>

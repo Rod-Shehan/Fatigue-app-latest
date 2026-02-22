@@ -1,0 +1,74 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+
+/**
+ * Consistent page header across the app.
+ * - Large back arrow on the left: goes to current sheet page when in sheet context (e.g. shift-log → sheet),
+ *   otherwise to Your Sheets (/sheets).
+ * - Optional icon, title, subtitle, and right-side actions.
+ */
+export function PageHeader({
+  backHref,
+  backLabel = "Your Sheets",
+  title,
+  subtitle,
+  icon,
+  actions,
+}: {
+  /** If set, shows a back link. Use /sheets for Your Sheets, /sheets/[id] for current sheet. */
+  backHref?: string;
+  /** Accessible label for the back link (e.g. "Your Sheets" or "Fatigue Record"). */
+  backLabel?: string;
+  title: string;
+  subtitle?: string;
+  /** Optional icon shown in a rounded box next to the title. */
+  icon?: React.ReactNode;
+  /** Optional content on the right (buttons, badges, etc.). */
+  actions?: React.ReactNode;
+}) {
+  return (
+    <header className="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {backHref != null ? (
+          <Link
+            href={backHref}
+            className="flex shrink-0 rounded-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+            aria-label={backLabel}
+            title={backLabel}
+          >
+            <span className="flex items-center justify-center min-w-12 min-h-12 w-12 h-12">
+              <ArrowLeft className="w-6 h-6" strokeWidth={2.25} />
+            </span>
+          </Link>
+        ) : (
+          <span className="w-12 h-12 shrink-0" aria-hidden />
+        )}
+        <div className="flex items-center gap-3 min-w-0">
+          {icon != null && (
+            <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-slate-600 flex items-center justify-center text-white dark:text-slate-200 shrink-0">
+              {icon}
+            </div>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 truncate">
+              {title}
+            </h1>
+            {subtitle != null && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                {subtitle}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+      {actions != null && (
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          {actions}
+        </div>
+      )}
+    </header>
+  );
+}

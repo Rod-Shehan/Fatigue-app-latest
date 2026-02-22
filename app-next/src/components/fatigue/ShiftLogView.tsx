@@ -91,16 +91,16 @@ export default function ShiftLogView({
   const hasAnyEvents = rows.length > 0;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left py-2 px-2 font-semibold text-slate-500 uppercase tracking-wider w-10">Day</th>
-              <th className="text-left py-2 px-2 font-semibold text-slate-500 uppercase tracking-wider w-16">Date</th>
-              <th className="text-left py-2 px-2 font-semibold text-slate-500 uppercase tracking-wider w-14">Time</th>
-              <th className="text-left py-2 px-2 font-semibold text-slate-500 uppercase tracking-wider">Type</th>
-              <th className="text-right py-2 px-2 font-semibold text-slate-500 uppercase tracking-wider w-14">Duration</th>
+            <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600">
+              <th className="text-left py-2 px-2 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10">Day</th>
+              <th className="text-left py-2 px-2 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-16">Date</th>
+              <th className="text-left py-2 px-2 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-14">Time</th>
+              <th className="text-left py-2 px-2 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+              <th className="text-right py-2 px-2 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-14">Duration</th>
               <th className="w-8 py-2 px-1" aria-label="Location" />
             </tr>
           </thead>
@@ -110,10 +110,10 @@ export default function ShiftLogView({
                 const cfg = EVENT_CONFIG[r.type];
                 const badge = ACTIVITY_THEME[r.type].badge;
                 return (
-                  <tr key={i} className={`border-b border-slate-100 last:border-0 ${r.isOngoing ? "bg-slate-50/70" : ""}`}>
-                    <td className="py-1.5 px-2 font-medium text-slate-600">{r.dayLabel}</td>
-                    <td className="py-1.5 px-2 text-slate-500 font-mono">{r.dateLabel}</td>
-                    <td className="py-1.5 px-2 font-mono text-slate-600">{r.time}</td>
+                  <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 last:border-0 ${r.isOngoing ? "bg-slate-50/70 dark:bg-slate-800/70" : ""}`}>
+                    <td className="py-1.5 px-2 font-medium text-slate-600 dark:text-slate-300">{r.dayLabel}</td>
+                    <td className="py-1.5 px-2 text-slate-500 dark:text-slate-400 font-mono">{r.dateLabel}</td>
+                    <td className="py-1.5 px-2 font-mono text-slate-600 dark:text-slate-300">{r.time}</td>
                     <td className="py-1.5 px-2">
                       <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${badge}`}>
                         {React.createElement(cfg?.icon ?? Square, { className: "w-2.5 h-2.5" })}
@@ -121,7 +121,7 @@ export default function ShiftLogView({
                       </span>
                       {r.shortBreak && <span className="ml-1 text-amber-500">⚠ &lt;10m</span>}
                     </td>
-                    <td className="py-1.5 px-2 text-right font-mono text-slate-500">
+                    <td className="py-1.5 px-2 text-right font-mono text-slate-500 dark:text-slate-400">
                       {r.duration > 0 ? formatDuration(r.duration) : "—"}
                     </td>
                     <td className="py-1.5 px-1 text-center">

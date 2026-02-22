@@ -144,7 +144,7 @@ export default function TimeGrid({ dayData }: { dayData: DayDataGrid }) {
         {ticks.map((h) => (
           <span
             key={h}
-            className="absolute text-[9px] font-mono text-slate-300 -translate-x-1/2"
+            className="absolute text-[9px] font-mono text-slate-300 dark:text-slate-500 -translate-x-1/2"
             style={{ left: `${(h / 24) * 100}%` }}
           >
             {String(h).padStart(2, "0")}
@@ -157,10 +157,10 @@ export default function TimeGrid({ dayData }: { dayData: DayDataGrid }) {
           const totalMins = getTotalMinutes(segs);
           return (
             <div key={row.key} className="flex items-center gap-2">
-              <span className="w-[68px] shrink-0 text-[10px] font-semibold text-slate-500 uppercase tracking-wide text-right">
+              <span className="w-[68px] shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">
                 {row.label}
               </span>
-              <div className="relative flex-1 h-5 bg-slate-100 rounded overflow-hidden">
+              <div className="relative flex-1 h-5 bg-slate-100 dark:bg-slate-700 rounded overflow-hidden">
                 {segs.map((seg, i) => (
                   <div
                     key={i}
@@ -180,8 +180,8 @@ export default function TimeGrid({ dayData }: { dayData: DayDataGrid }) {
                   />
                 ))}
               </div>
-              <span className="w-14 shrink-0 text-right text-[11px] font-bold font-mono text-slate-600">
-                {totalMins > 0 ? formatHours(totalMins) : <span className="text-slate-300">—</span>}
+              <span className="w-14 shrink-0 text-right text-[11px] font-bold font-mono text-slate-600 dark:text-slate-300">
+                {totalMins > 0 ? formatHours(totalMins) : <span className="text-slate-300 dark:text-slate-500">—</span>}
               </span>
             </div>
           );
