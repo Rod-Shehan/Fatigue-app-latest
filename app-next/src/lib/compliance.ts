@@ -324,6 +324,16 @@ function checkSoloRules(
     }
   }
 
+  /*
+   * 72-hour rule (Solo): rolling 72h must have ≥27h non-work and ≥3 blocks of ≥7h non-work.
+   * 24h continuous non-work resets: we only evaluate within each segment (between 24h breaks).
+   *
+   * Option used: "Trailing window only" — check only the single 72-hour window that ends at the
+   * end of the segment (i.e. the most recent 72 hours). This avoids warning on every historical
+   * window; we only warn if the current/latest 72h period does not meet the rule.
+   */
+  const weekStarting = soloOptions?.weekStarting ?? "";
+  const prevWeekStarting = soloOptions?.prevWeekStarting ?? "";
   for (const segment of segments24) {
     const segmentDays = segment.map((i) => days[i]);
     const nonWork = flatSlots(segmentDays, "non_work");
@@ -331,29 +341,37 @@ function checkSoloRules(
     const breaks = flatSlots(segmentDays, "breaks");
     const getLabelSlot = (slotIndex: number) => getLabel(segment[Math.min(Math.floor(slotIndex / SLOTS_PER_DAY), segment.length - 1)]);
     if (nonWork.length >= SLOTS_72H) {
-      for (let start = 0; start <= nonWork.length - SLOTS_72H; start++) {
-        const window = nonWork.slice(start, start + SLOTS_72H);
-        const totalNonWork = window.filter(Boolean).length * 0.5;
-        const sevenHrBlocks = countContinuousBlocksOfAtLeast(window, 7);
-        const hasData = window.some((_, i) => work[start + i] || breaks[start + i]);
-        if (!hasData) continue;
+      const start = nonWork.length - SLOTS_72H;
+      const endSlotInSegment = start + SLOTS_72H - 1;
+      const dayIdxAtEnd = segment[Math.min(Math.floor(endSlotInSegment / SLOTS_PER_DAY), segment.length - 1)];
+      const slotWithinDay = endSlotInSegment % SLOTS_PER_DAY;
+      const minutesFromMidnight = (slotWithinDay + 1) * 30;
+      const endHour = Math.floor(minutesFromMidnight / 60);
+      const endMin = minutesFromMidnight % 60;
+      const timeStr = endHour === 24 ? "24:00" : `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
+      const dateStr = getExtendedDayDate(dayIdxAtEnd, weekStarting, prevWeekStarting, prevCount);
+      const formattedDate = dateStr ? new Date(dateStr + "T12:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
+      const windowEndSuffix = formattedDate ? ` — 72h window ending ${formattedDate} at ${timeStr}` : "";
+
+      const window = nonWork.slice(start, start + SLOTS_72H);
+      const totalNonWork = window.filter(Boolean).length * 0.5;
+      const sevenHrBlocks = countContinuousBlocksOfAtLeast(window, 7);
+      const hasData = window.some((_, i) => work[start + i] || breaks[start + i]);
+      if (hasData) {
         if (totalNonWork < 27) {
           results.push({
             type: "warning",
             iconKey: "TrendingUp",
-            day: getLabelSlot(start + SLOTS_72H - 1),
-            message: `Need ≥27 hrs non-work in any rolling 72hr period (24h non-work resets this rule; this window: ${totalNonWork}h)`,
+            day: getLabelSlot(endSlotInSegment),
+            message: `Need ≥27 hrs non-work in any rolling 72hr period (24h non-work resets this rule; this window: ${totalNonWork}h)${windowEndSuffix}`,
           });
-          break;
-        }
-        if (sevenHrBlocks < 3) {
+        } else if (sevenHrBlocks < 3) {
           results.push({
             type: "warning",
             iconKey: "Moon",
-            day: getLabelSlot(start + SLOTS_72H - 1),
-            message: `Need ≥3 blocks of ≥7 continuous hrs non-work in any rolling 72hrs (24h non-work resets; found: ${sevenHrBlocks})`,
+            day: getLabelSlot(endSlotInSegment),
+            message: `Need ≥3 blocks of ≥7 continuous hrs non-work in any rolling 72hrs (24h non-work resets; found: ${sevenHrBlocks})${windowEndSuffix}`,
           });
-          break;
         }
       }
     }
@@ -455,8 +473,9 @@ export function runComplianceChecks(
     breaks: d.breaks || Array(48).fill(false),
     non_work: d.non_work || Array(48).fill(false),
   }));
-  const extendedDays = [...prevDays.slice(-2), ...days];
-  const prevCount = 2;
+  /* Include last 3 days of previous sheet so 72h rule can use previous sheet when trailing window intersects */
+  const extendedDays = [...prevDays.slice(-3), ...days];
+  const prevCount = Math.min(3, prevDays.length);
 
   if (driverType === "two_up") {
     checkTwoUpRules(extendedDays, results, prevCount);

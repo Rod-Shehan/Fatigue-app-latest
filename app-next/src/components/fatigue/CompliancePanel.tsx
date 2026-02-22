@@ -153,7 +153,7 @@ export default function CompliancePanel({
                 return (
               <div key={i} className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
                 {Icon && <Icon className="w-4 h-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />}
-                <p className="text-xs text-amber-700 dark:text-amber-200">{w.message} — {whenLabel(w.day, weekStarting, prevWeekStarting)}</p>
+                <p className="text-xs text-amber-700 dark:text-amber-200">{w.message}{w.message.includes("72h window ending") ? "" : ` — ${whenLabel(w.day, weekStarting, prevWeekStarting)}`}</p>
               </div>
                 );
             })}

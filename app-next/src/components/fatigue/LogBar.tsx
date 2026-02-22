@@ -97,6 +97,12 @@ export default function LogBar({
     d.setDate(d.getDate() + currentDayIndex);
     return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
   })();
+  const currentDayLabelShort = (() => {
+    if (!weekStarting) return DAY_NAMES[currentDayIndex];
+    const d = new Date(weekStarting);
+    d.setDate(d.getDate() + currentDayIndex);
+    return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  })();
 
   const clearPending = useCallback(() => {
     if (resetTimerRef.current) {
@@ -148,60 +154,65 @@ export default function LogBar({
 
   const barContent = (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-base">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base min-w-0">
         {leadingIcon != null && (
           <span className="flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0" aria-hidden>
             {leadingIcon}
           </span>
         )}
-        <span className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold">Today</span>
-        <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">{currentDayLabel}</span>
+        <span className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold shrink-0">Today</span>
+        <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums shrink-0">
+          <span className="hidden sm:inline">{currentDayLabel}</span>
+          <span className="sm:hidden">{currentDayLabelShort}</span>
+        </span>
         {currentType && (
-          <span className="text-slate-500 dark:text-slate-400">
-            — current activity: <span className="font-semibold text-slate-700 dark:text-slate-200">{currentType}</span>
+          <span className="text-slate-500 dark:text-slate-400 shrink-0">
+            <span className="hidden sm:inline">— current activity: </span>
+            <span className="sm:hidden">· </span>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{currentType}</span>
           </span>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-0" aria-hidden />
-        {(() => {
-          const nextWorkBreak = getNextWorkBreakType(currentType);
-          const isPending = pendingType === nextWorkBreak;
-          const theme = ACTIVITY_THEME[nextWorkBreak];
-          const isStartingShift = nextWorkBreak === "work" && (currentType === null || currentType === "stop");
-          const primaryLabel = isStartingShift ? "Start shift" : EVENT_LABELS[nextWorkBreak];
-          return (
-            <button
-              type="button"
-              onClick={() => handleLog(nextWorkBreak)}
-              className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] shrink-0 ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
-            >
-              {React.createElement(EVENT_ICONS[nextWorkBreak], { className: "w-8 h-8" })}
-              {isPending ? "Tap again to log" : primaryLabel}
-            </button>
-          );
-        })()}
-        <div className="flex-1 min-w-0" aria-hidden />
-        {(() => {
-          const type = "stop";
-          const isPending = pendingType === type;
-          const isDisabled = currentType === type;
-          const theme = ACTIVITY_THEME[type];
-          const buttonColors = isPending
-            ? "bg-red-500 hover:bg-red-600 disabled:bg-red-300"
-            : theme.button;
-          return (
-            <button
-              type="button"
-              onClick={() => handleLog(type)}
-              disabled={isDisabled}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shrink-0 ${buttonColors} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
-            >
-              {React.createElement(EVENT_ICONS[type], { className: "w-4 h-4" })}
-              {isPending ? "Tap again to end shift" : EVENT_LABELS[type]}
-            </button>
-          );
-        })()}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="inline-flex items-center gap-3 shrink-0">
+          {(() => {
+            const nextWorkBreak = getNextWorkBreakType(currentType);
+            const isPending = pendingType === nextWorkBreak;
+            const theme = ACTIVITY_THEME[nextWorkBreak];
+            const isStartingShift = nextWorkBreak === "work" && (currentType === null || currentType === "stop");
+            const primaryLabel = isStartingShift ? "Start shift" : EVENT_LABELS[nextWorkBreak];
+            return (
+              <button
+                type="button"
+                onClick={() => handleLog(nextWorkBreak)}
+                className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] shrink-0 ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
+              >
+                {React.createElement(EVENT_ICONS[nextWorkBreak], { className: "w-8 h-8" })}
+                {isPending ? "Tap again to log" : primaryLabel}
+              </button>
+            );
+          })()}
+          {(() => {
+            const type = "stop";
+            const isPending = pendingType === type;
+            const isDisabled = currentType === type;
+            const theme = ACTIVITY_THEME[type];
+            const buttonColors = isPending
+              ? "bg-red-500 hover:bg-red-600 disabled:bg-red-300"
+              : theme.button;
+            return (
+              <button
+                type="button"
+                onClick={() => handleLog(type)}
+                disabled={isDisabled}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shrink-0 ${buttonColors} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
+              >
+                {React.createElement(EVENT_ICONS[type], { className: "w-4 h-4" })}
+                {isPending ? "Tap again to end shift" : EVENT_LABELS[type]}
+              </button>
+            );
+          })()}
+        </div>
       </div>
 
       {contextualBar && (
@@ -217,26 +228,36 @@ export default function LogBar({
             </span>
           </div>
           <div className="relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
-              style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
-            />
-            {contextualBar.type === "work" && [1, 2, 3, 4].map((i) => (
+            <div className="absolute inset-0 rounded-full">
               <div
-                key={i}
-                className="absolute top-0 bottom-0 w-px bg-white/60"
-                style={{ left: `${(i / 5) * 100}%` }}
+                className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+                style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
+              />
+              {contextualBar.type === "work" && [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 bottom-0 w-px bg-white/60"
+                  style={{ left: `${(i / 5) * 100}%` }}
+                  aria-hidden
+                />
+              ))}
+              {contextualBar.type === "break" && [1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 bottom-0 w-px bg-white/60"
+                  style={{ left: `${(i / 4) * 100}%` }}
+                  aria-hidden
+                />
+              ))}
+            </div>
+            {contextualBar.pct > 0 && contextualBar.pct < 100 && (
+              <div
+                className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-black dark:bg-white border-2 border-slate-400 dark:border-slate-300 shadow-md pointer-events-none z-10"
+                style={{ left: `${contextualBar.pct}%` }}
+                title="Current progress"
                 aria-hidden
               />
-            ))}
-            {contextualBar.type === "break" && [1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="absolute top-0 bottom-0 w-px bg-white/60"
-                style={{ left: `${(i / 4) * 100}%` }}
-                aria-hidden
-              />
-            ))}
+            )}
           </div>
         </div>
       )}

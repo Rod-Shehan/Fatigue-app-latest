@@ -36,3 +36,22 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+/* Light mode: darker theme with clear contrast */
+:root:not(.dark) {
+  --light-page: #e2e8f0;   /* slate-200 */
+  --light-surface: #f1f5f9; /* slate-100 */
+  --light-border: #94a3b8;  /* slate-400 */
+}
+:root:not(.dark) .bg-slate-50 {
+  background-color: var(--light-page);
+}
+:root:not(.dark) .bg-white {
+  background-color: var(--light-surface);
+}
+:root:not(.dark) .border-slate-200 {
+  border-color: var(--light-border);
+}
+:root:not(.dark) .border-slate-100 {
+  border-color: #cbd5e1; /* slate-300 */
+}

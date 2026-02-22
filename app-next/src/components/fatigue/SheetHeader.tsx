@@ -81,7 +81,7 @@ export default function SheetHeader({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
             <User className="w-3 h-3" /> Driver Name

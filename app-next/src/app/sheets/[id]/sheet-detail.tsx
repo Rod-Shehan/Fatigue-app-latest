@@ -456,36 +456,6 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
           subtitle="WA Commercial Driver Fatigue Management"
           actions={
           <>
-            <button
-              type="button"
-              onClick={scrollToCompliance}
-              className={`inline-flex items-center gap-1.5 shrink-0 h-8 sm:h-9 rounded-md border px-2.5 sm:px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${
-                hasComplianceViolations
-                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50"
-                  : "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-800/50"
-              }`}
-              title={hasComplianceViolations ? "View compliance — issues found" : "View compliance — OK"}
-              aria-label={hasComplianceViolations ? "Compliance: issues found — jump to details" : "Compliance: OK — jump to details"}
-            >
-              {hasComplianceViolations ? (
-                <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              )}
-              <span>Compliance</span>
-              <span className="font-medium">
-                {hasComplianceViolations ? "Issues" : "OK"}
-              </span>
-            </button>
-            {lastSaved && !isDirty && (
-              <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span className="hidden sm:inline">Saved {lastSaved.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
-              </span>
-            )}
-            {isDirty && !saveMutation.isPending && (
-              <span className="text-[10px] text-amber-500 font-medium shrink-0">Unsaved changes</span>
-            )}
             <Link
               href="/manager"
               className="inline-flex items-center justify-center gap-1.5 shrink-0 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 sm:px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -500,6 +470,15 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
               <ScrollText className="w-3.5 h-3.5" />
               Shift Log
             </Link>
+            {lastSaved && !isDirty && (
+              <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span className="hidden sm:inline">Saved {lastSaved.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
+              </span>
+            )}
+            {isDirty && !saveMutation.isPending && (
+              <span className="text-[10px] text-amber-500 font-medium shrink-0">Unsaved changes</span>
+            )}
             {sheetData.status === "completed" && (
               <Badge variant="outline" className="border-emerald-300 text-emerald-600 flex items-center gap-1 shrink-0">
                 <CheckCircle2 className="w-3 h-3" /> Completed
@@ -558,6 +537,28 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                 </Button>
               )}
             </div>
+            <div className="w-full basis-full h-0" aria-hidden />
+            <button
+              type="button"
+              onClick={scrollToCompliance}
+              className={`inline-flex items-center gap-1.5 shrink-0 h-8 sm:h-9 rounded-md border px-2.5 sm:px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${
+                hasComplianceViolations
+                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50"
+                  : "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-800/50"
+              }`}
+              title={hasComplianceViolations ? "View compliance — issues found" : "View compliance — OK"}
+              aria-label={hasComplianceViolations ? "Compliance: issues found — jump to details" : "Compliance: OK — jump to details"}
+            >
+              {hasComplianceViolations ? (
+                <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              )}
+              <span>Compliance</span>
+              <span className="font-medium">
+                {hasComplianceViolations ? "Issues" : "OK"}
+              </span>
+            </button>
           </>
           }
         />

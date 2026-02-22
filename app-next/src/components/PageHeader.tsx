@@ -65,7 +65,7 @@ export function PageHeader({
         </div>
       </div>
       {actions != null && (
-        <div className="flex flex-wrap items-center gap-2 justify-end min-w-0 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 justify-start min-w-0 w-full sm:w-auto">
           {actions}
         </div>
       )}
