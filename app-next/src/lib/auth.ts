@@ -18,7 +18,11 @@ export const authOptions = {
         const email = credentials?.email;
         const password = credentials?.password;
         if (!email || !password) return null;
-        const devPass = process.env.NEXTAUTH_CREDENTIALS_PASSWORD;
+        // Only allow dev backdoor in development; never set NEXTAUTH_CREDENTIALS_PASSWORD in production
+        const devPass =
+          process.env.NODE_ENV === "development"
+            ? process.env.NEXTAUTH_CREDENTIALS_PASSWORD
+            : undefined;
         if (devPass && password === devPass) {
           let user = await prisma.user.findUnique({ where: { email } });
           if (!user) {
@@ -48,6 +52,40 @@ export const authOptions = {
     },
   },
 };
+
+export type SheetAccess = {
+  session: { user?: { id?: string; email?: string | null; name?: string | null } };
+  userId: string;
+  isManager: boolean;
+};
+
+/**
+ * Returns session and sheet-access context: drivers can only access their own sheets
+ * (createdById === userId); managers can access all. Use with canAccessSheet.
+ */
+export async function getSessionForSheetAccess(): Promise<SheetAccess | null> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+  const userId = (session.user as { id?: string }).id;
+  const manager = await getManagerSession();
+  return {
+    session,
+    userId,
+    isManager: !!manager,
+  };
+}
+
+/**
+ * True if the given access can read/update this sheet. Drivers: only own sheets (createdById match).
+ * Managers: all sheets.
+ */
+export function canAccessSheet(
+  sheet: { createdById: string | null },
+  access: SheetAccess
+): boolean {
+  if (access.isManager) return true;
+  return sheet.createdById === access.userId;
+}
 
 /** Returns session and DB user if the current user has manager role (was added by a manager). Otherwise null. */
 export async function getManagerSession() {

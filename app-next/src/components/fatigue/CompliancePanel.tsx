@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { AlertTriangle, CheckCircle2, Clock, Coffee, Moon, TrendingUp } from "lucide-react";
+import React from "react";
+import { AlertTriangle, CheckCircle2, Clock, Coffee, Loader2, Moon, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  runComplianceChecks,
-  getHours,
-  type ComplianceDayData,
-  type ComplianceCheckResult,
-} from "@/lib/compliance";
+import type { ComplianceCheckResult } from "@/lib/api";
 import { getSheetDayDateString } from "@/lib/weeks";
 import { ACTIVITY_THEME } from "@/lib/theme";
+
+/** Client-only: slot count to hours (48 slots = 24h). */
+function slotHours(arr: boolean[] | undefined): number {
+  return (arr?.filter(Boolean).length ?? 0) / 2;
+}
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -49,39 +49,33 @@ const ICON_MAP = {
   CheckCircle2,
 } as const;
 
+type DayLike = { work_time?: boolean[]; breaks?: boolean[]; non_work?: boolean[] };
+
 export default function CompliancePanel({
   days,
   driverType,
   prevWeekDays,
-  last24hBreak,
   weekStarting,
   prevWeekStarting,
+  complianceResults,
+  complianceLoading,
 }: {
-  days: ComplianceDayData[];
+  days: DayLike[];
   driverType?: string;
-  prevWeekDays?: ComplianceDayData[] | null;
+  prevWeekDays?: DayLike[] | null;
   last24hBreak?: string;
   weekStarting?: string;
   prevWeekStarting?: string;
+  complianceResults?: ComplianceCheckResult[] | null;
+  complianceLoading?: boolean;
 }) {
-  const checks = useMemo(
-    () =>
-      runComplianceChecks(days, {
-        driverType,
-        prevWeekDays,
-        last24hBreak,
-        weekStarting,
-        prevWeekStarting,
-      }),
-    [days, driverType, prevWeekDays, last24hBreak, weekStarting, prevWeekStarting]
-  );
-
+  const checks = complianceResults ?? [];
   const violations = checks.filter((c) => c.type === "violation");
   const warnings = checks.filter((c) => c.type === "warning");
-  const totalWork = days.reduce((s, d) => s + getHours(d.work_time), 0);
-  const totalBreaks = days.reduce((s, d) => s + getHours(d.breaks), 0);
-  const totalNonWork = days.reduce((s, d) => s + getHours(d.non_work), 0);
-  const prevWeekWork = (prevWeekDays || []).reduce((s, d) => s + getHours(d.work_time), 0);
+  const totalWork = days.reduce((s, d) => s + slotHours(d.work_time), 0);
+  const totalBreaks = days.reduce((s, d) => s + slotHours(d.breaks), 0);
+  const totalNonWork = days.reduce((s, d) => s + slotHours(d.non_work), 0);
+  const prevWeekWork = (prevWeekDays || []).reduce((s, d) => s + slotHours(d.work_time), 0);
   const isTwoUp = driverType === "two_up";
 
   return (
@@ -122,7 +116,13 @@ export default function CompliancePanel({
       {(!prevWeekDays || prevWeekDays.length === 0) && (
         <p className="text-[10px] text-slate-300 italic">No previous week sheet found — 14-day check is partial</p>
       )}
-      {checks.length === 0 && (
+      {complianceLoading && (
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+          <Loader2 className="w-5 h-5 text-slate-500 dark:text-slate-400 shrink-0 animate-spin" />
+          <span className="text-sm text-slate-600 dark:text-slate-300">Checking compliance…</span>
+        </div>
+      )}
+      {!complianceLoading && complianceResults && checks.length === 0 && (
         <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-500 dark:text-emerald-400 shrink-0" />
           <span className="text-sm font-medium text-emerald-700 dark:text-emerald-200">All compliant — no issues detected</span>

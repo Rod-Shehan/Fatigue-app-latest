@@ -62,7 +62,34 @@ export type FatigueSheet = {
   created_date?: string;
 };
 
+/** Compliance check result (server is source of truth). */
+export type ComplianceCheckResult = {
+  type: "violation" | "warning";
+  iconKey: string;
+  day: string;
+  message: string;
+};
+
 export const api = {
+  compliance: {
+    check: (payload: {
+      days: Array<{
+        work_time?: boolean[];
+        breaks?: boolean[];
+        non_work?: boolean[];
+        events?: { time: string; type: string }[];
+      }>;
+      driverType?: string;
+      prevWeekDays?: Array<{ work_time?: boolean[]; breaks?: boolean[]; non_work?: boolean[]; events?: { time: string; type: string }[] }> | null;
+      last24hBreak?: string;
+      weekStarting?: string;
+      prevWeekStarting?: string;
+    }) =>
+      fetchApi<{ results: ComplianceCheckResult[] }>("/api/compliance/check", {
+        method: "POST",
+        body: payload as unknown as Record<string, unknown>,
+      }),
+  },
   regos: {
     list: () => fetchApi<Rego[]>("/api/regos"),
     create: (data: { label: string; sort_order?: number }) =>

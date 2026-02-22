@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api, type FatigueSheet, type DayData } from "@/lib/api";
+import { api, type ComplianceCheckResult, type FatigueSheet, type DayData } from "@/lib/api";
 import {
   getSheetOfflineFirst,
   updateSheetOfflineFirst,
@@ -31,7 +31,6 @@ import CompliancePanel from "@/components/fatigue/CompliancePanel";
 import SignatureDialog from "@/components/fatigue/SignatureDialog";
 import LogBar from "@/components/fatigue/LogBar";
 import { deriveDaysWithRollover, applyLast24hBreakNonWorkRule } from "@/components/fatigue/EventLogger";
-import { runComplianceChecks } from "@/lib/compliance";
 import { getSheetDayDateString, getTodayLocalDateString } from "@/lib/weeks";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
@@ -171,17 +170,23 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     );
   }, [allSheets, sheetData.driver_name, sheetData.week_starting, sheetId]);
 
-  const complianceResults = useMemo(
-    () =>
-      runComplianceChecks(sheetData.days, {
-        driverType: sheetData.driver_type,
-        prevWeekDays: prevWeekSheet?.days || null,
-        last24hBreak: sheetData.last_24h_break || undefined,
-        weekStarting: sheetData.week_starting || undefined,
-        prevWeekStarting: prevWeekSheet?.week_starting ?? undefined,
-      }),
+  const compliancePayload = useMemo(
+    () => ({
+      days: sheetData.days,
+      driverType: sheetData.driver_type,
+      prevWeekDays: prevWeekSheet?.days ?? null,
+      last24hBreak: sheetData.last_24h_break || undefined,
+      weekStarting: sheetData.week_starting || undefined,
+      prevWeekStarting: prevWeekSheet?.week_starting ?? undefined,
+    }),
     [sheetData.days, sheetData.driver_type, sheetData.last_24h_break, sheetData.week_starting, prevWeekSheet]
   );
+  const { data: complianceData, isLoading: complianceLoading } = useQuery({
+    queryKey: ["compliance", sheetId, compliancePayload],
+    queryFn: () => api.compliance.check(compliancePayload),
+    enabled: !!sheetData.days?.length,
+  });
+  const complianceResults: ComplianceCheckResult[] = complianceData?.results ?? [];
   const hasComplianceViolations = complianceResults.some((r) => r.type === "violation");
 
   const scrollToCompliance = useCallback(() => {
@@ -594,6 +599,8 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                   last24hBreak={sheetData.last_24h_break || undefined}
                   weekStarting={sheetData.week_starting || undefined}
                   prevWeekStarting={prevWeekSheet?.week_starting ?? undefined}
+                  complianceResults={complianceData?.results ?? null}
+                  complianceLoading={complianceLoading}
                 />
               </motion.div>
               {sheetData.signature && (

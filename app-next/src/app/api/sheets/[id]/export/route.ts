@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionForSheetAccess, canAccessSheet } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -160,11 +159,15 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const access = await getSessionForSheetAccess();
+  if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    await getServerSession(authOptions);
     const { id } = await params;
     const row = await prisma.fatigueSheet.findUnique({ where: { id } });
     if (!row) return NextResponse.json({ error: "Sheet not found" }, { status: 404 });
+    if (!canAccessSheet(row, access)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     let days: Array<{
         work_time?: boolean[];

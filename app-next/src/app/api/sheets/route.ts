@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionForSheetAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getThisWeekSunday, isNextWeekOrLater } from "@/lib/weeks";
 
@@ -37,14 +36,17 @@ function sheetToJson(row: {
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getSessionForSheetAccess();
+  if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    const where = access.isManager
+      ? {}
+      : { createdById: access.userId };
     const sheets = await prisma.fatigueSheet.findMany({
+      where,
       orderBy: { weekStarting: "desc" },
       take: 50,
     });
-    // Optional: filter by session.user.email if you store created_by as email
     const list = sheets.map((s) => sheetToJson(s));
     return NextResponse.json(list);
   } catch (e) {
@@ -53,8 +55,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getSessionForSheetAccess();
+  if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
     const {
@@ -125,7 +127,7 @@ export async function POST(req: Request) {
         status: status ?? "draft",
         signature: signature ?? null,
         signedAt: signed_at ? new Date(signed_at) : null,
-        createdById: (session?.user as { id?: string })?.id ?? null,
+        createdById: access.userId,
       },
     });
     return NextResponse.json(sheetToJson(sheet));
