@@ -91,6 +91,7 @@ function buildSegmentsFromEvents(
     if (effectiveEndMin > 0) segments.non_work = [{ startMin: 0, endMin: effectiveEndMin }];
     return segments;
   }
+  const MIN_BREAK_BLOCK_MINUTES = 10;
   const workOrBreakRanges: { startMin: number; endMin: number }[] = [];
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
@@ -103,7 +104,9 @@ function buildSegmentsFromEvents(
     let startMin = Math.floor((clampedStart - dayStart) / 60000);
     let endMin = Math.min(effectiveEndMin, Math.ceil((clampedEnd - dayStart) / 60000));
     if (startMin >= endMin) continue;
-    if (ev.type === "work") {
+    const durationMinutes = endMin - startMin;
+    const treatBreakAsWork = ev.type === "break" && durationMinutes < MIN_BREAK_BLOCK_MINUTES;
+    if (ev.type === "work" || treatBreakAsWork) {
       segments.work_time.push({ startMin, endMin });
       workOrBreakRanges.push({ startMin, endMin });
     } else if (ev.type === "break") {

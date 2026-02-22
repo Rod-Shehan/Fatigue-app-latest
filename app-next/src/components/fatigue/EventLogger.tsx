@@ -44,6 +44,7 @@ const MINUTES_PER_SLOT = 30;
  * Rule: work is continuous across midnight when there is no End Shift — previous day's
  * work/break rolls into the next day from 00:00 until the first event (carryOver).
  * Rule: any gap shorter than 30 minutes between work is recorded as break, not non-work.
+ * Rule: a completed break (has next event) shorter than 10 minutes is allocated to work time; ongoing breaks stay in break bar.
  */
 export function deriveGridFromEvents(
   events: { time: string; type: string }[] | undefined,
@@ -86,10 +87,13 @@ export function deriveGridFromEvents(
     const end = nextEv ? new Date(nextEv.time).getTime() : (isToday ? now : dayEnd);
     const clampedStart = Math.max(start, dayStart);
     const clampedEnd = Math.min(end, effectiveEnd);
+    const durationMinutes = Math.floor((clampedEnd - clampedStart) / 60000);
     const startSlot = Math.floor((clampedStart - dayStart) / (30 * 60 * 1000));
     const endSlot = Math.ceil((clampedEnd - dayStart) / (30 * 60 * 1000));
+    const isCompletedBreak = ev.type === "break" && nextEv != null;
+    const treatBreakAsWork = isCompletedBreak && durationMinutes < MIN_BREAK_BLOCK_MINUTES;
     for (let s = Math.max(0, startSlot); s < Math.min(maxSlotExclusive, endSlot); s++) {
-      if (ev.type === "work") work_time[s] = true;
+      if (ev.type === "work" || treatBreakAsWork) work_time[s] = true;
       else if (ev.type === "break") breaks[s] = true;
     }
   }

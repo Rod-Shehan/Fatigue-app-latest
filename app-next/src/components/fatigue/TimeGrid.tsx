@@ -70,11 +70,13 @@ function buildSegments(events: { time: string; type: string }[] | undefined, dat
     return segments;
   }
 
+  const MIN_BREAK_BLOCK_MINUTES = 10;
   const workOrBreakRanges: { startMin: number; endMin: number }[] = [];
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
+    const nextEv = events[i + 1];
     if (ev.type === "stop") continue;
-    const end = events[i + 1] ? new Date(events[i + 1].time).getTime() : Date.now();
+    const end = nextEv ? new Date(nextEv.time).getTime() : Date.now();
     const clampedEnd = Math.min(end, dayEnd);
     const start = new Date(ev.time).getTime();
     const clampedStart = Math.max(start, dayStart);
@@ -83,7 +85,10 @@ function buildSegments(events: { time: string; type: string }[] | undefined, dat
     let endMin = Math.ceil((clampedEnd - dayStart) / 60000);
     endMin = Math.min(endMin, effectiveEndMin);
     if (startMin >= endMin) continue;
-    if (ev.type === "work") {
+    const durationMinutes = endMin - startMin;
+    const isCompletedBreak = ev.type === "break" && nextEv != null;
+    const treatBreakAsWork = isCompletedBreak && durationMinutes < MIN_BREAK_BLOCK_MINUTES;
+    if (ev.type === "work" || treatBreakAsWork) {
       segments.work_time.push({ startMin, endMin });
       workOrBreakRanges.push({ startMin, endMin });
     } else if (ev.type === "break") {

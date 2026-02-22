@@ -532,3 +532,73 @@ export function runComplianceChecks(
 
   return results;
 }
+
+/** Slot index (0–47) for "now" on the given sheet day. Uses local date. */
+function getSlotIndexForNow(weekStarting: string, currentDayIndex: number): number {
+  const dateStr = getSheetDayDateString(weekStarting, currentDayIndex);
+  const startOfDay = new Date(dateStr + "T00:00:00").getTime();
+  const now = Date.now();
+  const slot = Math.floor((now - startOfDay) / (30 * 60 * 1000));
+  return Math.max(0, Math.min(47, slot));
+}
+
+/** Clone days and set one work_time slot to true (for prospective "log work now" check). */
+function cloneDaysAndInjectWork(
+  days: ComplianceDayData[],
+  dayIndex: number,
+  slotIndex: number
+): ComplianceDayData[] {
+  return days.map((d, i) => {
+    if (i !== dayIndex) return { ...d };
+    const work = d.work_time ?? Array(48).fill(false);
+    const next = [...work];
+    if (slotIndex >= 0 && slotIndex < next.length) next[slotIndex] = true;
+    return { ...d, work_time: next };
+  });
+}
+
+/** Messages relevant when about to log work (rest, non-work, 17h, 72h, 48h, 14-day limits). */
+const WORK_RELEVANT_MESSAGE_PATTERNS = [
+  "non-work",
+  "7 continuous",
+  "7h ",
+  "17h",
+  "72",
+  "48 hrs",
+  "48hrs",
+  "168",
+  "14-day",
+  "rest",
+];
+
+function filterWorkRelevantResults(results: ComplianceCheckResult[]): ComplianceCheckResult[] {
+  return results.filter((r) =>
+    WORK_RELEVANT_MESSAGE_PATTERNS.some((p) => r.message.includes(p))
+  );
+}
+
+/**
+ * Run compliance as if one more 30-min work segment were logged at "now" on the current day.
+ * Returns work-relevant violation/warning messages (rest, non-work, limits).
+ * Use when the user is about to tap "Work" to show prospective issues.
+ */
+export function getProspectiveWorkWarnings(
+  days: ComplianceDayData[],
+  currentDayIndex: number,
+  weekStarting: string,
+  options: {
+    driverType?: string;
+    prevWeekDays?: ComplianceDayData[] | null;
+    last24hBreak?: string;
+    prevWeekStarting?: string;
+  }
+): string[] {
+  const slot = getSlotIndexForNow(weekStarting, currentDayIndex);
+  const cloned = cloneDaysAndInjectWork(days, currentDayIndex, slot);
+  const results = runComplianceChecks(cloned, {
+    ...options,
+    weekStarting,
+  });
+  const relevant = filterWorkRelevantResults(results);
+  return relevant.map((r) => r.message);
+}

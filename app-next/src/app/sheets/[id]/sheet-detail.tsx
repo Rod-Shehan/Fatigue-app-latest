@@ -31,6 +31,7 @@ import SignatureDialog from "@/components/fatigue/SignatureDialog";
 import LogBar from "@/components/fatigue/LogBar";
 import { deriveDaysWithRollover, applyLast24hBreakNonWorkRule } from "@/components/fatigue/EventLogger";
 import { getSheetDayDateString, getTodayLocalDateString } from "@/lib/weeks";
+import { getProspectiveWorkWarnings } from "@/lib/compliance";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
 
@@ -197,6 +198,30 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
   });
   const complianceResults: ComplianceCheckResult[] = complianceData?.results ?? [];
   const hasComplianceViolations = complianceResults.some((r) => r.type === "violation");
+
+  const prospectiveWorkWarnings = useMemo(() => {
+    if (!sheetData.days?.length || sheetData.status === "completed") return [];
+    return getProspectiveWorkWarnings(
+      sheetData.days,
+      currentDayIndex,
+      sheetData.week_starting,
+      {
+        driverType: sheetData.driver_type,
+        prevWeekDays: prevWeekSheet?.days ?? null,
+        last24hBreak: sheetData.last_24h_break || undefined,
+        prevWeekStarting: prevWeekSheet?.week_starting ?? undefined,
+      }
+    );
+  }, [
+    sheetData.days,
+    sheetData.week_starting,
+    sheetData.driver_type,
+    sheetData.last_24h_break,
+    sheetData.status,
+    currentDayIndex,
+    prevWeekSheet?.days,
+    prevWeekSheet?.week_starting,
+  ]);
 
   const scrollToCompliance = useCallback(() => {
     document.getElementById("compliance-check")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -450,6 +475,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
           onLogEvent={handleLogEvent}
           onEndShiftRequest={handleEndShiftRequest}
           leadingIcon={<FileText className="w-5 h-5" />}
+          workRelevantComplianceMessages={prospectiveWorkWarnings}
         />
       )}
       <div className="max-w-[1400px] mx-auto px-4 py-6">

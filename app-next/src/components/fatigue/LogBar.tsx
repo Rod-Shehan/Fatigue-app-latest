@@ -33,12 +33,55 @@ function getNextWorkBreakType(currentType: string | null): "work" | "break" {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MIN_BREAK_TOTAL_MINUTES = 20;
-  const MIN_BREAK_BLOCK_MINUTES = 10;
-  const BREAK_BLOCKS_REQUIRED = 1;
+const MIN_BREAK_BLOCK_MINUTES = 10;
+const BREAK_BLOCKS_REQUIRED = 1;
+/** Minimum non-work hours between shifts (rest rule). */
+const MIN_REST_HOURS_BETWEEN_SHIFTS = 7;
 const CONFIRM_RESET_MS = 2500;
 
 function getDurationMinutes(start: string, end: string) {
   return Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000);
+}
+
+/**
+ * Break due by time: 5h from start of current 5h work window, minus 20 min if no 10+ min break
+ * in that window, or minus 10 min if a 10+ min break has been taken in that window.
+ */
+function getBreakDueByTime(events: { time: string; type: string }[], nowMs: number): number | null {
+  if (events.length === 0) return null;
+  const last = events[events.length - 1];
+  if (last.type !== "work") return null;
+  const WORK_WINDOW_MIN = WORK_TARGET_MINUTES; // 300
+  let remainingWork = WORK_WINDOW_MIN;
+  let windowStartMs: number | null = null;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const segEnd = i === events.length - 1 ? nowMs : new Date(events[i + 1].time).getTime();
+    const segStart = new Date(events[i].time).getTime();
+    const durationMin = Math.floor((segEnd - segStart) / 60000);
+    if (events[i].type === "work") {
+      if (remainingWork <= durationMin) {
+        windowStartMs = segEnd - remainingWork * 60 * 1000;
+        break;
+      }
+      remainingWork -= durationMin;
+    }
+  }
+  // If we haven't yet accumulated 5h work, the window is the current work run (break due from its start).
+  if (windowStartMs == null) windowStartMs = new Date(last.time).getTime();
+  let had10MinBreak = false;
+  for (let i = 0; i < events.length; i++) {
+    if (events[i].type !== "break") continue;
+    const segStart = new Date(events[i].time).getTime();
+    const segEnd = i + 1 < events.length ? new Date(events[i + 1].time).getTime() : nowMs;
+    const durationMin = Math.floor((segEnd - segStart) / 60000);
+    const overlapsWindow = segStart < nowMs && segEnd > windowStartMs;
+    if (durationMin >= MIN_BREAK_BLOCK_MINUTES && overlapsWindow) {
+      had10MinBreak = true;
+      break;
+    }
+  }
+  const minutesBeforeDue = had10MinBreak ? 10 : 20;
+  return windowStartMs + (WORK_WINDOW_MIN - minutesBeforeDue) * 60 * 1000;
 }
 
 type DayData = { events?: { time: string; type: string }[] };
@@ -50,6 +93,7 @@ export default function LogBar({
   onLogEvent,
   onEndShiftRequest,
   leadingIcon,
+  workRelevantComplianceMessages,
 }: {
   days: DayData[];
   currentDayIndex: number;
@@ -59,8 +103,11 @@ export default function LogBar({
   onEndShiftRequest?: (dayIndex: number) => void;
   /** Optional icon shown to the left of the "Today" label in the top header row. */
   leadingIcon?: React.ReactNode;
+  /** Prospective compliance messages (rest, non-work, limits) if work were logged now. When set, shown when user taps Work. */
+  workRelevantComplianceMessages?: string[];
 }) {
   const [pendingType, setPendingType] = useState<string | null>(null);
+  const [workWarning, setWorkWarning] = useState<{ message: string; confirmLabel: string; onConfirm: () => void; onCancel?: () => void; subtext?: string } | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -114,6 +161,7 @@ export default function LogBar({
 
   useEffect(() => {
     clearPending();
+    setWorkWarning(null);
   }, [currentDayIndex, clearPending]);
 
   const getBreakWarning = (newType: string) => {
@@ -132,21 +180,114 @@ export default function LogBar({
     return null;
   };
 
+  /** Warning when finishing a break (switching to work): short breaks count as work time. */
+  const getShortBreakWarning = (newType: string) => {
+    if (newType !== "work" || currentType !== "break" || !lastEvent) return null;
+    const breakStart = new Date(lastEvent.time).getTime();
+    const breakMinutes = Math.floor((Date.now() - breakStart) / 60000);
+    if (breakMinutes >= MIN_BREAK_BLOCK_MINUTES) return null;
+    return "Breaks under 10 minutes are automatically counted as work time.";
+  };
+
+  /** Warning when starting work with &lt;7h non-work since last shift. */
+  const getInsufficientRestWarning = () => {
+    if (currentType !== null && currentType !== "stop") return null;
+    let lastStopTime: number | null = null;
+    for (let d = 0; d <= currentDayIndex; d++) {
+      const evs = days[d]?.events ?? [];
+      for (const ev of evs) {
+        if (ev.type === "stop") {
+          const t = new Date(ev.time).getTime();
+          if (lastStopTime === null || t > lastStopTime) lastStopTime = t;
+        }
+      }
+    }
+    if (lastStopTime === null) return null;
+    const restHours = (Date.now() - lastStopTime) / (3600 * 1000);
+    if (restHours >= MIN_REST_HOURS_BETWEEN_SHIFTS) return null;
+    return "Less than 7 hours non-work time since last shift. Starting work may not meet rest requirements.";
+  };
+
   const handleLog = (type: string) => {
     if (type === currentType) return;
 
     if (pendingType === type) {
+      if (type === "work") {
+        const insufficientBreakMsg = getBreakWarning(type);
+        if (insufficientBreakMsg) {
+          setWorkWarning({
+            message: insufficientBreakMsg,
+            confirmLabel: "Log work anyway",
+            subtext: "This will log work now.",
+            onConfirm: () => {
+              setWorkWarning(null);
+              clearPending();
+              onLogEvent(currentDayIndex, type);
+            },
+            onCancel: clearPending,
+          });
+          return;
+        }
+      }
       clearPending();
       if (type === "stop" && onEndShiftRequest) {
         onEndShiftRequest(currentDayIndex);
         return;
       }
-      const warning = getBreakWarning(type);
-      if (warning && !window.confirm(`⚠️ ${warning}\n\nLog work anyway?`)) return;
       onLogEvent(currentDayIndex, type);
       return;
     }
 
+    if (type === "work") {
+      const shortBreakMsg = getShortBreakWarning(type);
+      if (shortBreakMsg) {
+        setWorkWarning({
+          message: shortBreakMsg,
+          confirmLabel: "Finish break anyway",
+          subtext: "Tap Work again within a few seconds to confirm.",
+          onConfirm: () => {
+            setWorkWarning(null);
+            setPendingType("work");
+            if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+            resetTimerRef.current = setTimeout(clearPending, CONFIRM_RESET_MS);
+          },
+        });
+        return;
+      }
+      const restMsg = getInsufficientRestWarning();
+      if (restMsg) {
+        setWorkWarning({
+          message: restMsg,
+          confirmLabel: "Start shift anyway",
+          subtext: "Tap Work again within a few seconds to confirm.",
+          onConfirm: () => {
+            setWorkWarning(null);
+            setPendingType("work");
+            if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+            resetTimerRef.current = setTimeout(clearPending, CONFIRM_RESET_MS);
+          },
+        });
+        return;
+      }
+      if (workRelevantComplianceMessages?.length) {
+        const message =
+          workRelevantComplianceMessages.length === 1
+            ? workRelevantComplianceMessages[0]
+            : "Logging work now may affect these compliance rules:\n\n• " + workRelevantComplianceMessages.join("\n\n• ");
+        setWorkWarning({
+          message,
+          confirmLabel: currentType === null || currentType === "stop" ? "Start shift anyway" : "Log work anyway",
+          subtext: "Tap Work again within a few seconds to confirm.",
+          onConfirm: () => {
+            setWorkWarning(null);
+            setPendingType("work");
+            if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+            resetTimerRef.current = setTimeout(clearPending, CONFIRM_RESET_MS);
+          },
+        });
+        return;
+      }
+    }
     setPendingType(type);
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     resetTimerRef.current = setTimeout(clearPending, CONFIRM_RESET_MS);
@@ -219,18 +360,27 @@ export default function LogBar({
         <div className="pt-1">
           <div className="flex items-center justify-between gap-2 mb-0.5">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              {contextualBar.type === "work" && "WORK — BREAK DUE BEFORE 5H"}
+              {contextualBar.type === "work" && (() => {
+                const breakDueByMs = getBreakDueByTime(events, Date.now());
+                return breakDueByMs != null
+                  ? `WORK — BREAK DUE BY ${new Date(breakDueByMs).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true })}`
+                  : "WORK — BREAK DUE";
+              })()}
               {contextualBar.type === "break" && "Break — 20 min"}
             </span>
             <span className="text-xs font-mono text-slate-600 dark:text-slate-300 tabular-nums">
-              {formatCountdown(contextualBar.elapsed)} / {contextualBar.label}
-              <span className="text-slate-400 dark:text-slate-500 ml-1">→ {formatCountdown(contextualBar.remaining)} left</span>
+              {contextualBar.type === "work" ? null : (
+                <>
+                  {formatCountdown(contextualBar.elapsed)} / {contextualBar.label}
+                  <span className="text-slate-400 dark:text-slate-500 ml-1">→ {formatCountdown(contextualBar.remaining)} left</span>
+                </>
+              )}
             </span>
           </div>
-          <div className="relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-            <div className="absolute inset-0 rounded-full">
+          <div className="relative h-8 bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">
+            <div className="absolute inset-0 rounded-lg">
               <div
-                className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+                className="absolute inset-y-0 left-0 rounded-lg transition-all duration-300"
                 style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
               />
               {contextualBar.type === "work" && [1, 2, 3, 4].map((i) => (
@@ -278,6 +428,36 @@ export default function LogBar({
             <ThemeToggle />
           </div>
         </div>
+        {workWarning && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" aria-modal role="alertdialog" aria-labelledby="work-warning-title">
+            <div className="mx-4 max-w-sm rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-600 shadow-xl p-4 space-y-3">
+              <p id="work-warning-title" className="font-semibold text-amber-800 dark:text-amber-200">⚠️ Work time rule</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{workWarning.message}</p>
+              {workWarning.subtext && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">{workWarning.subtext}</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    workWarning.onCancel?.();
+                    setWorkWarning(null);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => workWarning.onConfirm()}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white"
+                >
+                  {workWarning.confirmLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
