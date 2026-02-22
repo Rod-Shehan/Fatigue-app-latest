@@ -30,8 +30,8 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 flex-wrap mb-6">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap mb-6">
+      <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
         {backHref != null ? (
           <Link
             href={backHref}
@@ -39,21 +39,21 @@ export function PageHeader({
             aria-label={backLabel}
             title={backLabel}
           >
-            <span className="flex items-center justify-center min-w-12 min-h-12 w-12 h-12">
-              <ArrowLeft className="w-6 h-6" strokeWidth={2.25} />
+            <span className="flex items-center justify-center min-w-10 min-h-10 w-10 h-10 sm:min-w-12 sm:min-h-12 sm:w-12 sm:h-12">
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.25} />
             </span>
           </Link>
         ) : (
-          <span className="w-12 h-12 shrink-0" aria-hidden />
+          <span className="w-10 h-10 sm:w-12 sm:h-12 shrink-0" aria-hidden />
         )}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           {icon != null && (
-            <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-slate-600 flex items-center justify-center text-white dark:text-slate-200 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900 dark:bg-slate-600 flex items-center justify-center text-white dark:text-slate-200 shrink-0">
               {icon}
             </div>
           )}
-          <div className="min-w-0">
-            <h1 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 truncate">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 truncate">
               {title}
             </h1>
             {subtitle != null && (
@@ -65,7 +65,7 @@ export function PageHeader({
         </div>
       </div>
       {actions != null && (
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 justify-end min-w-0 w-full sm:w-auto">
           {actions}
         </div>
       )}

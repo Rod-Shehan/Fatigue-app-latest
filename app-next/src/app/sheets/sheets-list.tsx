@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { type FatigueSheet } from "@/lib/api";
@@ -8,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/PageHeader";
 import { format } from "date-fns";
 import { Plus, FileText, Loader2, Clock, ChevronRight, Truck } from "lucide-react";
+
+const LAST_SHEET_KEY = "fatigue-last-sheet-id";
 
 function getTotalWorkHours(sheet: FatigueSheet) {
   if (!sheet.days) return 0;
@@ -18,16 +21,31 @@ function getTotalWorkHours(sheet: FatigueSheet) {
 }
 
 export function SheetsList() {
+  const [backToSheetId, setBackToSheetId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const id = sessionStorage.getItem(LAST_SHEET_KEY);
+      if (id) setBackToSheetId(id);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const { data: sheets = [], isLoading } = useQuery({
     queryKey: ["sheets"],
     queryFn: () => listSheetsOfflineFirst(),
   });
+
+  const backHref = backToSheetId ? `/sheets/${backToSheetId}` : undefined;
+  const backLabel = backToSheetId ? "Current sheet" : undefined;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
         <div className="mb-8">
           <PageHeader
+            backHref={backHref}
+            backLabel={backLabel}
             title="Driver Fatigue Log"
             subtitle="WA Commercial Vehicle Fatigue Management"
             icon={<Truck className="w-5 h-5" />}
@@ -59,10 +77,16 @@ export function SheetsList() {
           </div>
         )}
         <div className="space-y-3">
-          {sheets.map((sheet) => (
+          {sheets.map((sheet) => {
+            const isActive = backToSheetId !== null && sheet.id === backToSheetId;
+            return (
             <div
               key={sheet.id}
-              className="bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-300 dark:border-slate-700 shadow-md hover:shadow-lg hover:border-slate-400 dark:hover:border-slate-600 transition-all"
+              className={`rounded-xl border-2 shadow-md transition-all ${
+                isActive
+                  ? "bg-slate-100 dark:bg-slate-800 border-slate-500 dark:border-slate-400 ring-2 ring-slate-400/30 dark:ring-slate-300/20 hover:shadow-lg hover:border-slate-600 dark:hover:border-slate-300"
+                  : "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:shadow-lg hover:border-slate-400 dark:hover:border-slate-600"
+              }`}
             >
               <Link href={`/sheets/${sheet.id}`} className="flex items-center justify-between p-4 md:p-5">
                 <div className="flex items-center gap-4">
@@ -100,7 +124,8 @@ export function SheetsList() {
                 </div>
               </Link>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
     </div>

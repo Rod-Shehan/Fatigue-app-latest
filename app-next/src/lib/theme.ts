@@ -45,13 +45,13 @@ export const ACTIVITY_THEME: Record<
     statsValue: "text-emerald-700 dark:text-emerald-200",
   },
   stop: {
-    hex: "#94a3b8",
-    rgb: [148, 163, 184],
-    button: "bg-slate-400 hover:bg-slate-500 disabled:bg-slate-300",
-    badge: "bg-slate-100 text-slate-600 dark:bg-slate-600 dark:text-slate-200",
-    statsCard: "bg-slate-50 dark:bg-slate-800 dark:border-slate-600",
-    statsLabel: "text-slate-500 dark:text-slate-400",
-    statsValue: "text-slate-700 dark:text-slate-200",
+    hex: "#f59e0b",
+    rgb: [245, 158, 11],
+    button: "bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300",
+    badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200",
+    statsCard: "bg-amber-50 dark:bg-amber-900/30 dark:border-amber-800/50",
+    statsLabel: "text-amber-500 dark:text-amber-400",
+    statsValue: "text-amber-700 dark:text-amber-200",
   },
 };
 

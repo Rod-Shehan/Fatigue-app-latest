@@ -1,13 +1,25 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSheetOfflineFirst } from "@/lib/offline-api";
 import { PageHeader } from "@/components/PageHeader";
 import { FileText, Loader2 } from "lucide-react";
 import ShiftLogView from "@/components/fatigue/ShiftLogView";
 
+const LAST_SHEET_KEY = "fatigue-last-sheet-id";
+
 export default function ShiftLogPage({ sheetId }: { sheetId: string }) {
+  useEffect(() => {
+    if (sheetId) {
+      try {
+        sessionStorage.setItem(LAST_SHEET_KEY, sheetId);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [sheetId]);
+
   const { data: sheet, isLoading } = useQuery({
     queryKey: ["sheet", sheetId],
     queryFn: () => getSheetOfflineFirst(sheetId),

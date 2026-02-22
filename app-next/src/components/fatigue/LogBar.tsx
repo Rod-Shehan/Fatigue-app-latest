@@ -49,6 +49,7 @@ export default function LogBar({
   weekStarting,
   onLogEvent,
   onEndShiftRequest,
+  leadingIcon,
 }: {
   days: DayData[];
   currentDayIndex: number;
@@ -56,6 +57,8 @@ export default function LogBar({
   onLogEvent: (dayIndex: number, type: string) => void;
   /** When provided, End Shift (second tap) calls this instead of onLogEvent so the parent can show end km input. */
   onEndShiftRequest?: (dayIndex: number) => void;
+  /** Optional icon shown to the left of the "Today" label in the top header row. */
+  leadingIcon?: React.ReactNode;
 }) {
   const [pendingType, setPendingType] = useState<string | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,6 +149,11 @@ export default function LogBar({
   const barContent = (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-base">
+        {leadingIcon != null && (
+          <span className="flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0" aria-hidden>
+            {leadingIcon}
+          </span>
+        )}
         <span className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold">Today</span>
         <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">{currentDayLabel}</span>
         {currentType && (
@@ -154,36 +162,43 @@ export default function LogBar({
           </span>
         )}
       </div>
-      <div className="flex flex-wrap justify-center items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-0" aria-hidden />
         {(() => {
           const nextWorkBreak = getNextWorkBreakType(currentType);
           const isPending = pendingType === nextWorkBreak;
           const theme = ACTIVITY_THEME[nextWorkBreak];
+          const isStartingShift = nextWorkBreak === "work" && (currentType === null || currentType === "stop");
+          const primaryLabel = isStartingShift ? "Start shift" : EVENT_LABELS[nextWorkBreak];
           return (
             <button
               type="button"
               onClick={() => handleLog(nextWorkBreak)}
-              className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
+              className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] shrink-0 ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
             >
               {React.createElement(EVENT_ICONS[nextWorkBreak], { className: "w-8 h-8" })}
-              {isPending ? "Tap again to log" : EVENT_LABELS[nextWorkBreak]}
+              {isPending ? "Tap again to log" : primaryLabel}
             </button>
           );
         })()}
+        <div className="flex-1 min-w-0" aria-hidden />
         {(() => {
           const type = "stop";
           const isPending = pendingType === type;
           const isDisabled = currentType === type;
           const theme = ACTIVITY_THEME[type];
+          const buttonColors = isPending
+            ? "bg-red-500 hover:bg-red-600 disabled:bg-red-300"
+            : theme.button;
           return (
             <button
               type="button"
               onClick={() => handleLog(type)}
               disabled={isDisabled}
-              className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl text-white text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shrink-0 ${buttonColors} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
             >
-              {React.createElement(EVENT_ICONS[type], { className: "w-5 h-5" })}
-              {isPending ? "Tap again to log" : EVENT_LABELS[type]}
+              {React.createElement(EVENT_ICONS[type], { className: "w-4 h-4" })}
+              {isPending ? "Tap again to end shift" : EVENT_LABELS[type]}
             </button>
           );
         })()}

@@ -109,6 +109,16 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (sheetId) {
+      try {
+        sessionStorage.setItem("fatigue-last-sheet-id", sheetId);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [sheetId]);
   const currentDayIndex = useMemo(
     () => getCurrentDayIndex(sheetData.week_starting),
     [sheetData.week_starting, now]
@@ -435,6 +445,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
           weekStarting={sheetData.week_starting}
           onLogEvent={handleLogEvent}
           onEndShiftRequest={handleEndShiftRequest}
+          leadingIcon={<FileText className="w-5 h-5" />}
         />
       )}
       <div className="max-w-[1400px] mx-auto px-4 py-6">
@@ -443,13 +454,12 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
           backLabel="Your Sheets"
           title="Fatigue Record"
           subtitle="WA Commercial Driver Fatigue Management"
-          icon={<FileText className="w-5 h-5" />}
           actions={
           <>
             <button
               type="button"
               onClick={scrollToCompliance}
-              className={`inline-flex items-center gap-2 h-9 rounded-md border px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${
+              className={`inline-flex items-center gap-1.5 shrink-0 h-8 sm:h-9 rounded-md border px-2.5 sm:px-3 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${
                 hasComplianceViolations
                   ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50"
                   : "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-800/50"
@@ -458,9 +468,9 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
               aria-label={hasComplianceViolations ? "Compliance: issues found — jump to details" : "Compliance: OK — jump to details"}
             >
               {hasComplianceViolations ? (
-                <XCircle className="w-4 h-4 shrink-0" />
+                <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               )}
               <span>Compliance</span>
               <span className="font-medium">
@@ -468,34 +478,34 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
               </span>
             </button>
             {lastSaved && !isDirty && (
-              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+              <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                Saved {lastSaved.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                <span className="hidden sm:inline">Saved {lastSaved.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
               </span>
             )}
             {isDirty && !saveMutation.isPending && (
-              <span className="text-[10px] text-amber-500 font-medium">Unsaved changes</span>
+              <span className="text-[10px] text-amber-500 font-medium shrink-0">Unsaved changes</span>
             )}
             <Link
               href="/manager"
-              className="inline-flex items-center justify-center gap-1.5 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 shrink-0 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 sm:px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               Manager
             </Link>
             <Link
               href={`/sheets/${sheetId}/shift-log`}
-              className="inline-flex items-center justify-center gap-1.5 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 shrink-0 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 sm:px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <ScrollText className="w-3.5 h-3.5" />
               Shift Log
             </Link>
             {sheetData.status === "completed" && (
-              <Badge variant="outline" className="border-emerald-300 text-emerald-600 flex items-center gap-1">
+              <Badge variant="outline" className="border-emerald-300 text-emerald-600 flex items-center gap-1 shrink-0">
                 <CheckCircle2 className="w-3 h-3" /> Completed
               </Badge>
             )}
-            <div className="relative inline-flex" ref={saveMenuRef}>
+            <div className="relative inline-flex shrink-0" ref={saveMenuRef}>
               {sheetData.status !== "completed" ? (
                 <>
                   <Button

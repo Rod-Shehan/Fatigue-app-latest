@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus } from "lucide-react";
 
+const LAST_SHEET_KEY = "fatigue-last-sheet-id";
+
 function formatSheetLabel(sheet: FatigueSheet): string {
   const driver = sheet.driver_name || "Draft";
   const week = sheet.week_starting
@@ -32,6 +34,17 @@ function formatSheetLabel(sheet: FatigueSheet): string {
 export function ManagerView() {
   const queryClient = useQueryClient();
   const [selectedSheetId, setSelectedSheetId] = useState<string>("");
+  const [lastSheetId, setLastSheetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const id = sessionStorage.getItem(LAST_SHEET_KEY);
+      if (id) setLastSheetId(id);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const [form, setForm] = useState<{
     last_24h_break: string;
     driver_type: string;
@@ -120,8 +133,8 @@ export function ManagerView() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
         <PageHeader
-          backHref="/sheets"
-          backLabel="Your Sheets"
+          backHref={selectedSheetId ? `/sheets/${selectedSheetId}` : lastSheetId ? `/sheets/${lastSheetId}` : "/sheets"}
+          backLabel={selectedSheetId || lastSheetId ? "Fatigue Record" : "Your Sheets"}
           title="Manager"
           subtitle="View sheets and compliance across drivers"
           icon={<LayoutDashboard className="w-5 h-5" />}
