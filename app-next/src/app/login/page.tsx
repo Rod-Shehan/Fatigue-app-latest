@@ -41,27 +41,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 py-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-8">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center text-center">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center mb-4 shadow-sm">
-            <LogIn className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-slate-100 flex items-center justify-center mb-4 shadow-sm">
+            <LogIn className="w-6 h-6 text-white dark:text-slate-900" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             Driver Fatigue Log
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
             WA Commercial Vehicle Fatigue Management
           </p>
         </div>
         <form
           onSubmit={onSubmit}
-          className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5"
+          className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5"
         >
           <div className="space-y-2">
             <Label
               htmlFor="email"
-              className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold"
+              className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold"
             >
               Email
             </Label>
@@ -78,7 +78,7 @@ export default function LoginPage() {
           <div className="space-y-2">
             <Label
               htmlFor="password"
-              className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold"
+              className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold"
             >
               Password
             </Label>
@@ -107,7 +107,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full h-9 border-slate-300 text-slate-600 font-medium gap-2"
+              className="w-full h-9 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium gap-2"
               disabled={loading}
               onClick={(e) => onSubmit(e, "/manager")}
             >
@@ -115,7 +115,7 @@ export default function LoginPage() {
             </Button>
           </div>
         </form>
-        <p className="text-xs text-center text-slate-400">
+        <p className="text-xs text-center text-slate-400 dark:text-slate-500">
           Set NEXTAUTH_CREDENTIALS_PASSWORD in .env to use password sign-in.
         </p>
       </div>
