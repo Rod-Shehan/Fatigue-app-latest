@@ -110,6 +110,34 @@ That’s it. Your project is now on GitHub.
 
 ---
 
+## How do I save my latest changes to GitHub? (Simple version)
+
+After you’ve set things up once (Steps 1–4 above), saving your latest work to GitHub is two steps:
+
+1. **Commit** = Git saves a snapshot of your project on your computer (like “Save”).
+2. **Push** = Git sends that snapshot to GitHub (like “Upload”).
+
+**Easiest: double-click this file in your project folder**
+
+- **Back up to GitHub.bat** — Run it whenever you want to back up. It will add all changes, commit them, and push to GitHub. If the window says “nothing to commit,” you have no new changes; that’s fine.
+
+**Or do it yourself in PowerShell (one command at a time):**
+
+```powershell
+cd "c:\Users\r_she\Documents\Fatigue app"
+git add .
+git commit -m "Back up my latest changes"
+git push origin main
+```
+
+- `git add .` = “include all my changed files.”
+- `git commit -m "..."` = “save a snapshot with this note.”
+- `git push origin main` = “send that snapshot to GitHub.”
+
+The first time you push, Git may ask for your GitHub username and a **Personal Access Token** (from https://github.com/settings/tokens, with `repo` ticked). Use the token as the password.
+
+---
+
 ## Summary
 
 | Word    | Meaning |
