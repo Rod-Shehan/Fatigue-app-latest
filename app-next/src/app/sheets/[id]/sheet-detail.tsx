@@ -22,7 +22,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, FileText, Loader2, CheckCircle2, ScrollText, ChevronDown, XCircle, Download, LayoutDashboard, Square } from "lucide-react";
-import { toPng } from "html-to-image";
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/PageHeader";
 import SheetHeader from "@/components/fatigue/SheetHeader";
@@ -428,6 +427,11 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     });
   };
 
+  const handleExportPdf = useCallback(() => {
+    setShowSaveMenu(false);
+    window.open(api.exportPdfUrl(sheetId), "_blank");
+  }, [sheetId]);
+
   if (isLoading || !sheet) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -522,19 +526,43 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Save & mark complete
                       </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleExportPdf();
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 border-t border-slate-200 dark:border-slate-600"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Export PDF
+                      </button>
                     </div>
                   )}
                 </>
               ) : (
-                <Button
-                  onClick={handleSave}
-                  disabled={saveMutation.isPending}
-                  size="sm"
-                  className="bg-slate-900 hover:bg-slate-800 text-white gap-1.5 text-xs"
-                >
-                  {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  Save
-                </Button>
+                <>
+                  <Button
+                    onClick={handleSave}
+                    disabled={saveMutation.isPending}
+                    size="sm"
+                    className="bg-slate-900 hover:bg-slate-800 text-white gap-1.5 text-xs"
+                  >
+                    {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleExportPdf}
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs border-slate-300 dark:border-slate-600"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export PDF
+                  </Button>
+                </>
               )}
             </div>
             <div className="w-full basis-full h-0" aria-hidden />
