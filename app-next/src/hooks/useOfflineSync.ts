@@ -32,14 +32,14 @@ export function useOfflineSync() {
   useEffect(() => {
     const handleOnline = () => {
       setOnline(true);
-      doSync();
+      doSync().catch(() => {});
     };
     const handleOffline = () => setOnline(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    getPendingCount().then(setPendingCount);
-    doSync();
+    getPendingCount().then(setPendingCount).catch(() => setPendingCount(0));
+    doSync().catch(() => {});
 
     return () => {
       window.removeEventListener("online", handleOnline);
@@ -49,7 +49,7 @@ export function useOfflineSync() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      getPendingCount().then(setPendingCount);
+      getPendingCount().then(setPendingCount).catch(() => setPendingCount(0));
     }, 5000);
     return () => clearInterval(interval);
   }, []);

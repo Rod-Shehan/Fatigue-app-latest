@@ -3,6 +3,15 @@ import { getSessionForSheetAccess, canAccessSheet, getManagerSession } from "@/l
 import { prisma } from "@/lib/prisma";
 import { getPreviousWeekSunday, isNextWeekOrLater } from "@/lib/weeks";
 
+function parseDays(daysJson: string): unknown[] {
+  try {
+    const parsed = JSON.parse(daysJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function sheetToJson(row: {
   id: string;
   driverName: string;
@@ -26,7 +35,7 @@ function sheetToJson(row: {
     destination: row.destination,
     last_24h_break: row.last24hBreak,
     week_starting: row.weekStarting,
-    days: JSON.parse(row.days) as unknown[],
+    days: parseDays(row.days),
     status: row.status,
     signature: row.signature,
     signed_at: row.signedAt?.toISOString() ?? null,
@@ -49,8 +58,8 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     return NextResponse.json(sheetToJson(sheet));
-  } catch (e) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
@@ -127,8 +136,8 @@ export async function PATCH(
       data: data as Parameters<typeof prisma.fatigueSheet.update>[0]["data"],
     });
     return NextResponse.json(sheetToJson(updated));
-  } catch (e) {
-    return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
@@ -142,7 +151,7 @@ export async function DELETE(
     const { id } = await params;
     await prisma.fatigueSheet.delete({ where: { id } });
     return new NextResponse(null, { status: 204 });
-  } catch (e) {
-    return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

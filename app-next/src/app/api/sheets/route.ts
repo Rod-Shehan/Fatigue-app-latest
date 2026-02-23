@@ -3,6 +3,15 @@ import { getSessionForSheetAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getThisWeekSunday, isNextWeekOrLater } from "@/lib/weeks";
 
+function parseDays(daysJson: string): unknown[] {
+  try {
+    const parsed = JSON.parse(daysJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function sheetToJson(row: {
   id: string;
   driverName: string;
@@ -26,7 +35,7 @@ function sheetToJson(row: {
     destination: row.destination,
     last_24h_break: row.last24hBreak,
     week_starting: row.weekStarting,
-    days: JSON.parse(row.days) as unknown[],
+    days: parseDays(row.days),
     status: row.status,
     signature: row.signature,
     signed_at: row.signedAt?.toISOString() ?? null,
@@ -49,8 +58,8 @@ export async function GET() {
     });
     const list = sheets.map((s) => sheetToJson(s));
     return NextResponse.json(list);
-  } catch (e) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 

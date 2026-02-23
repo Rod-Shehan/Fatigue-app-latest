@@ -289,19 +289,21 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
       return { ...prev, days: applyLast24hBreakNonWorkRule(withGrids, prev.week_starting, prev.last_24h_break || undefined) };
     });
     setIsDirty(true);
-    getCurrentPosition(BEST_EFFORT_OPTIONS).then((loc) => {
-      if (!loc) return;
-      setSheetData((prev) => {
-        const newDays = [...prev.days];
-        const day = newDays[dayIndex];
-        const events = [...(day.events || [])];
-        const last = events[events.length - 1];
-        if (last) events[events.length - 1] = { ...last, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
-        newDays[dayIndex] = { ...day, events };
-        return { ...prev, days: newDays };
-      });
-      setIsDirty(true);
-    });
+    getCurrentPosition(BEST_EFFORT_OPTIONS)
+      .then((loc) => {
+        if (!loc) return;
+        setSheetData((prev) => {
+          const newDays = [...prev.days];
+          const day = newDays[dayIndex];
+          const events = [...(day.events || [])];
+          const last = events[events.length - 1];
+          if (last) events[events.length - 1] = { ...last, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
+          newDays[dayIndex] = { ...day, events };
+          return { ...prev, days: newDays };
+        });
+        setIsDirty(true);
+      })
+      .catch(() => {});
   }, []);
 
   const handleEndShiftRequest = useCallback(async (dayIndex: number) => {
@@ -379,19 +381,21 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     setIsDirty(true);
     setEndShiftDialog(null);
     setEndShiftEndKms("");
-    getCurrentPosition(BEST_EFFORT_OPTIONS).then((loc) => {
-      if (!loc) return;
-      setSheetData((prev) => {
-        const newDays = [...prev.days];
-        const d = newDays[dayIndex];
-        const events = [...(d.events || [])];
-        const last = events[events.length - 1];
-        if (last) events[events.length - 1] = { ...last, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
-        newDays[dayIndex] = { ...d, events };
-        return { ...prev, days: newDays };
-      });
-      setIsDirty(true);
-    });
+    getCurrentPosition(BEST_EFFORT_OPTIONS)
+      .then((loc) => {
+        if (!loc) return;
+        setSheetData((prev) => {
+          const newDays = [...prev.days];
+          const d = newDays[dayIndex];
+          const events = [...(d.events || [])];
+          const last = events[events.length - 1];
+          if (last) events[events.length - 1] = { ...last, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
+          newDays[dayIndex] = { ...d, events };
+          return { ...prev, days: newDays };
+        });
+        setIsDirty(true);
+      })
+      .catch(() => {});
   }, [endShiftDialog, endShiftEndKms]);
 
   const handleSave = () => {
