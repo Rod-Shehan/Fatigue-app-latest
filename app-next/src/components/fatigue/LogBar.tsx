@@ -84,6 +84,49 @@ function getBreakDueByTime(events: { time: string; type: string }[], nowMs: numb
   return windowStartMs + (WORK_WINDOW_MIN - minutesBeforeDue) * 60 * 1000;
 }
 
+/**
+ * Break complete by time: start of current break + 10 min if a 10+ min break was already taken
+ * in the preceding 5h work window, otherwise + 20 min.
+ */
+function getBreakCompleteByTime(events: { time: string; type: string }[], nowMs: number): number | null {
+  if (events.length === 0) return null;
+  const last = events[events.length - 1];
+  if (last.type !== "break") return null;
+  const breakStartMs = new Date(last.time).getTime();
+  const WORK_WINDOW_MIN = WORK_TARGET_MINUTES;
+  let remainingWork = WORK_WINDOW_MIN;
+  let windowStartMs: number | null = null;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const segEnd = i === events.length - 1 ? breakStartMs : new Date(events[i + 1].time).getTime();
+    const segStart = new Date(events[i].time).getTime();
+    const durationMin = Math.floor((segEnd - segStart) / 60000);
+    if (events[i].type === "work") {
+      if (remainingWork <= durationMin) {
+        windowStartMs = segEnd - remainingWork * 60 * 1000;
+        break;
+      }
+      remainingWork -= durationMin;
+    }
+  }
+  if (windowStartMs == null && events.length >= 2) windowStartMs = new Date(events[events.length - 2].time).getTime();
+  if (windowStartMs == null) return null;
+  let had10MinBreakInWindow = false;
+  for (let i = 0; i < events.length; i++) {
+    if (events[i].type !== "break") continue;
+    const segStart = new Date(events[i].time).getTime();
+    const segEnd = i + 1 < events.length ? new Date(events[i + 1].time).getTime() : breakStartMs;
+    if (segEnd > breakStartMs) continue;
+    const durationMin = Math.floor((segEnd - segStart) / 60000);
+    const overlapsWindow = segStart < breakStartMs && segEnd > windowStartMs;
+    if (durationMin >= MIN_BREAK_BLOCK_MINUTES && overlapsWindow) {
+      had10MinBreakInWindow = true;
+      break;
+    }
+  }
+  const minutesForBreak = had10MinBreakInWindow ? 10 : 20;
+  return breakStartMs + minutesForBreak * 60 * 1000;
+}
+
 type DayData = { events?: { time: string; type: string }[] };
 
 export default function LogBar({
@@ -366,15 +409,15 @@ export default function LogBar({
                   ? `WORK — BREAK DUE BY ${new Date(breakDueByMs).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true })}`
                   : "WORK — BREAK DUE";
               })()}
-              {contextualBar.type === "break" && "Break — 20 min"}
+              {contextualBar.type === "break" && (() => {
+                const completeByMs = getBreakCompleteByTime(events, Date.now());
+                return completeByMs != null
+                  ? `BREAK COMPLETE BY ${new Date(completeByMs).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true })}`
+                  : "BREAK — 20 min";
+              })()}
             </span>
             <span className="text-xs font-mono text-slate-600 dark:text-slate-300 tabular-nums">
-              {contextualBar.type === "work" ? null : (
-                <>
-                  {formatCountdown(contextualBar.elapsed)} / {contextualBar.label}
-                  <span className="text-slate-400 dark:text-slate-500 ml-1">→ {formatCountdown(contextualBar.remaining)} left</span>
-                </>
-              )}
+              {null}
             </span>
           </div>
           <div className="relative h-8 bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">

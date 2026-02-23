@@ -37,14 +37,20 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({
+      token,
+      user,
+    }: {
+      token: Record<string, unknown> & { id?: string; email?: string | null };
+      user?: { id: string; email?: string | null; name?: string | null };
+    }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: import("next-auth").Session; token: Record<string, unknown> & { id?: string } }) {
       if (session.user) {
         (session.user as { id?: string }).id = token.id as string;
       }
@@ -65,11 +71,11 @@ export type SheetAccess = {
  */
 export async function getSessionForSheetAccess(): Promise<SheetAccess | null> {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return null;
-  const userId = (session.user as { id?: string }).id;
+  const userId = session?.user && "id" in session.user ? (session.user as { id: string }).id : undefined;
+  if (!userId) return null;
   const manager = await getManagerSession();
   return {
-    session,
+    session: session!,
     userId,
     isManager: !!manager,
   };
@@ -90,9 +96,10 @@ export function canAccessSheet(
 /** Returns session and DB user if the current user has manager role (was added by a manager). Otherwise null. */
 export async function getManagerSession() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return null;
+  const userId = session?.user ? (session.user as { id?: string }).id : undefined;
+  if (!userId) return null;
   const user = await prisma.user.findUnique({
-    where: { id: (session.user as { id?: string }).id },
+    where: { id: userId },
     select: { id: true, email: true, name: true, role: true },
   });
   if (!user) return null;

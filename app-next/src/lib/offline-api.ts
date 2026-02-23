@@ -119,7 +119,7 @@ export async function updateSheetOfflineFirst(sheetId: string, data: Partial<Fat
     : { ...data, id: sheetId } as FatigueSheet;
   await offlineSetSheet(merged);
   const isLocalTemp = sheetId.startsWith("local-");
-  if (!isLocalTemp) await offlineEnqueue({ type: "update", sheetId, data, at: Date.now() });
+  if (!isLocalTemp) await offlineEnqueue({ type: "update", sheetId, data });
 
   if (isOnline() && !isLocalTemp) {
     const result = await runSync();
@@ -148,7 +148,7 @@ export async function createSheetOfflineFirst(data: Omit<FatigueSheet, "id" | "c
   await offlineSetSheet(local);
   const list = await offlineGetSheetsList();
   await offlineSetSheetsList([...list, local]);
-  await offlineEnqueue({ type: "create", tempId, data, at: Date.now() });
+  await offlineEnqueue({ type: "create", tempId, data });
   return local;
 }
 

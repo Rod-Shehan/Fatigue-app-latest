@@ -40,8 +40,8 @@ const EMPTY_DAY = (): DayData => ({
   date: "",
   truck_rego: "",
   destination: "",
-  start_kms: null,
-  end_kms: null,
+  start_kms: undefined,
+  end_kms: undefined,
   work_time: Array(48).fill(false),
   breaks: Array(48).fill(false),
   non_work: Array(48).fill(false),
@@ -454,7 +454,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
 
   const handleExportPdf = useCallback(() => {
     setShowSaveMenu(false);
-    window.open(api.exportPdfUrl(sheetId), "_blank");
+    window.open(api.sheets.exportPdfUrl(sheetId), "_blank");
   }, [sheetId]);
 
   if (isLoading || !sheet) {

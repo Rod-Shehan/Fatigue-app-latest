@@ -18,6 +18,11 @@ export type PendingWrite =
   | { id?: number; type: "update"; sheetId: string; data: Partial<FatigueSheet>; at: number }
   | { id?: number; type: "create"; tempId: string; data: Omit<FatigueSheet, "id">; at: number };
 
+/** Argument for offlineEnqueue (same shape as PendingWrite but without `at`). */
+export type PendingWriteEnqueue =
+  | { type: "update"; sheetId: string; data: Partial<FatigueSheet> }
+  | { type: "create"; tempId: string; data: Omit<FatigueSheet, "id"> };
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") {
@@ -113,7 +118,7 @@ export async function offlineGetPending(): Promise<PendingWrite[]> {
   });
 }
 
-export async function offlineEnqueue(write: Omit<PendingWrite, "at">): Promise<void> {
+export async function offlineEnqueue(write: PendingWriteEnqueue): Promise<void> {
   const db = await openDB();
   const withAt = { ...write, at: Date.now() } as PendingWrite;
   return new Promise((resolve, reject) => {

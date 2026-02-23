@@ -125,7 +125,7 @@ export default function ShiftLogView({
                       {r.duration > 0 ? formatDuration(r.duration) : "—"}
                     </td>
                     <td className="py-1.5 px-1 text-center">
-                      {r.hasLocation ? <MapPin className="w-3 h-3 text-slate-400 inline" title="Location recorded" /> : null}
+                      {r.hasLocation ? <span className="inline-flex" title="Location recorded"><MapPin className="w-3 h-3 text-slate-400 inline" aria-hidden /></span> : null}
                     </td>
                   </tr>
                 );

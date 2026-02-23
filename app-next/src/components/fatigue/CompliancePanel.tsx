@@ -133,7 +133,7 @@ export default function CompliancePanel({
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
             <p className="text-[10px] uppercase tracking-wider text-red-500 dark:text-red-400 font-bold">Violations ({violations.length})</p>
             {violations.map((v, i) => {
-                const Icon = ICON_MAP[v.iconKey];
+                const Icon = ICON_MAP[v.iconKey as keyof typeof ICON_MAP];
                 return (
               <div key={i} className="flex items-start gap-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-2.5">
                 {Icon && <Icon className="w-4 h-4 text-red-500 dark:text-red-400 mt-0.5 shrink-0" />}
@@ -149,7 +149,7 @@ export default function CompliancePanel({
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
             <p className="text-[10px] uppercase tracking-wider text-amber-500 dark:text-amber-400 font-bold">Warnings ({warnings.length})</p>
             {warnings.map((w, i) => {
-                const Icon = ICON_MAP[w.iconKey];
+                const Icon = ICON_MAP[w.iconKey as keyof typeof ICON_MAP];
                 return (
               <div key={i} className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
                 {Icon && <Icon className="w-4 h-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />}

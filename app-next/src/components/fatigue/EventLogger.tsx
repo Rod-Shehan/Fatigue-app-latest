@@ -207,7 +207,7 @@ export default function EventLogger({
   onUpdate,
   readOnly = false,
 }: {
-  dayData: { events?: { time: string; type: string }[] };
+  dayData: { events?: Array<{ time: string; type: string; lat?: number; lng?: number; accuracy?: number }> };
   dateStr: string;
   onUpdate: (d: unknown) => void;
   readOnly?: boolean;
@@ -282,7 +282,9 @@ export default function EventLogger({
               </span>
               {dur > 0 && ev.type !== "stop" && <span className="text-slate-400 font-mono">{formatDuration(dur)}</span>}
               {ev.lat != null && ev.lng != null && (
-                <MapPin className="w-3 h-3 text-slate-400 shrink-0" title="Location recorded" />
+                <span className="inline-flex items-center" title="Location recorded">
+                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" aria-hidden />
+                </span>
               )}
               {ev.type === "break" && nextEv && dur < MIN_BREAK_BLOCK_MINUTES && (
                 <span className="text-amber-500 text-[10px]">⚠ &lt;10 min</span>

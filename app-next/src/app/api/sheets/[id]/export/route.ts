@@ -314,7 +314,7 @@ export async function GET(
         doc.rect(barLeft, y, barW, rowH, "S");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
-        doc.setTextColor(totalMins > 0 ? GREY_TEXT : GREY_LABEL);
+        doc.setTextColor(...(totalMins > 0 ? GREY_TEXT : GREY_LABEL));
         doc.text(formatHours(totalMins), barLeft + barW + 2, y + rowH * 0.7);
         y += rowH + 1.5;
       });

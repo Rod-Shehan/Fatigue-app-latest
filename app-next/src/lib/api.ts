@@ -6,12 +6,11 @@
 // In the browser we use relative URLs so the request goes to the same origin (and sends cookies).
 const base = typeof window !== "undefined" ? "" : process.env.NEXTAUTH_URL ?? "";
 
-async function fetchApi<T>(
-  path: string,
-  options?: RequestInit & { method?: string; body?: object }
-): Promise<T> {
+type FetchApiOptions = Omit<RequestInit, "body"> & { body?: object };
+
+async function fetchApi<T>(path: string, options?: FetchApiOptions): Promise<T> {
   const { method = "GET", body, ...rest } = options ?? {};
-  const res = await fetch(`${base}${path}`, {
+  const fetchOptions: RequestInit = {
     ...rest,
     method,
     headers: {
@@ -20,7 +19,8 @@ async function fetchApi<T>(
     },
     credentials: "include",
     ...(body !== undefined && { body: JSON.stringify(body) }),
-  });
+  };
+  const res = await fetch(`${base}${path}`, fetchOptions);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const msg = (err as { error?: string }).error ?? "Request failed";
@@ -39,8 +39,8 @@ export type DayData = {
   date?: string;
   truck_rego?: string;
   destination?: string;
-  start_kms?: number;
-  end_kms?: number;
+  start_kms?: number | null;
+  end_kms?: number | null;
   work_time?: boolean[];
   breaks?: boolean[];
   non_work?: boolean[];
@@ -87,7 +87,7 @@ export const api = {
     }) =>
       fetchApi<{ results: ComplianceCheckResult[] }>("/api/compliance/check", {
         method: "POST",
-        body: payload as unknown as Record<string, unknown>,
+        body: payload,
       }),
   },
   regos: {
@@ -113,9 +113,9 @@ export const api = {
     regoMaxEndKms: (rego: string) =>
       fetchApi<{ maxEndKms: number | null }>(`/api/rego-kms?rego=${encodeURIComponent(rego)}`),
     create: (data: Omit<FatigueSheet, "id" | "created_date">) =>
-      fetchApi<FatigueSheet>("/api/sheets", { method: "POST", body: data as unknown as Record<string, unknown> }),
+      fetchApi<FatigueSheet>("/api/sheets", { method: "POST", body: data }),
     update: (id: string, data: Partial<FatigueSheet>) =>
-      fetchApi<FatigueSheet>(`/api/sheets/${id}`, { method: "PATCH", body: data as unknown as Record<string, unknown> }),
+      fetchApi<FatigueSheet>(`/api/sheets/${id}`, { method: "PATCH", body: data }),
     delete: (id: string) =>
       fetchApi<void>(`/api/sheets/${id}`, { method: "DELETE" }),
     exportPdfUrl: (id: string) => `${base}/api/sheets/${id}/export`,
