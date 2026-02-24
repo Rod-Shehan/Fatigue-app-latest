@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type FatigueSheet } from "@/lib/api";
+import { api, type FatigueSheet, type ManagerComplianceItem } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus } from "lucide-react";
+import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus, AlertTriangle, Coffee, Moon, Clock, TrendingUp, ExternalLink } from "lucide-react";
+
+const COMPLIANCE_ICON_MAP = {
+  Coffee,
+  AlertTriangle,
+  Moon,
+  Clock,
+  TrendingUp,
+  CheckCircle2,
+} as const;
+
+function formatWeekLabel(weekStarting: string): string {
+  return new Date(weekStarting + "T12:00:00").toLocaleDateString("en-AU", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 const LAST_SHEET_KEY = "fatigue-last-sheet-id";
 
@@ -71,6 +89,13 @@ export function ManagerView() {
     queryFn: () => api.sheets.get(selectedSheetId),
     enabled: !!selectedSheetId,
   });
+
+  const { data: complianceOversight, isLoading: oversightLoading } = useQuery({
+    queryKey: ["manager", "compliance"],
+    queryFn: () => api.manager.compliance(),
+  });
+  const oversightItems: ManagerComplianceItem[] = complianceOversight?.items ?? [];
+  const itemsWithIssues = oversightItems.filter((i) => i.results.length > 0);
 
   useEffect(() => {
     if (!selectedSheet || selectedSheet.id !== selectedSheetId) return;

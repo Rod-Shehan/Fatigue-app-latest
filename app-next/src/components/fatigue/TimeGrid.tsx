@@ -111,6 +111,13 @@ function formatHours(minutes: number) {
   return `${h}h ${m}m`;
 }
 
+/** Minutes since midnight to "HH:MM" for labels under bars. */
+function minToHHMM(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 type DayDataGrid = {
   events?: { time: string; type: string }[];
   date?: string;
@@ -145,47 +152,72 @@ export default function TimeGrid({ dayData }: { dayData: DayDataGrid }) {
 
   return (
     <div className="select-none">
-      <div className="relative h-4 mb-1" style={{ marginLeft: 72 }}>
+      <div className="relative h-3 mb-0.5" style={{ marginLeft: 72 }}>
         {ticks.map((h) => (
           <span
             key={h}
-            className="absolute text-[9px] font-mono text-slate-300 dark:text-slate-500 -translate-x-1/2"
+            className="absolute text-[8px] font-mono text-slate-300 dark:text-slate-500 -translate-x-1/2"
             style={{ left: `${(h / 24) * 100}%` }}
           >
             {String(h).padStart(2, "0")}
           </span>
         ))}
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {TIME_GRID_ROWS.map((row) => {
           const segs = segments[row.key as keyof typeof segments];
           const totalMins = getTotalMinutes(segs);
           return (
-            <div key={row.key} className="flex items-center gap-2">
-              <span className="w-[68px] shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">
+            <div key={row.key} className="flex items-start gap-1.5 sm:gap-2">
+              <span className="w-[68px] shrink-0 pt-0.5 text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">
                 {row.label}
               </span>
-              <div className="relative flex-1 h-5 bg-slate-100 dark:bg-slate-700 rounded overflow-hidden">
-                {segs.map((seg, i) => (
-                  <div
-                    key={i}
-                    className="absolute top-0 h-full rounded-sm opacity-90"
-                    style={{
-                      left: `${(seg.startMin / TOTAL_MINUTES) * 100}%`,
-                      width: `${Math.max(((seg.endMin - seg.startMin) / TOTAL_MINUTES) * 100, 0.2)}%`,
-                      backgroundColor: row.color,
-                    }}
-                  />
-                ))}
-                {ticks.slice(1, -1).map((h) => (
-                  <div
-                    key={h}
-                    className="absolute top-0 h-full border-l border-white/40 pointer-events-none"
-                    style={{ left: `${(h / 24) * 100}%` }}
-                  />
-                ))}
+              <div className="flex-1 min-w-0">
+                <div className="relative h-2.5 bg-slate-100 dark:bg-slate-700 rounded overflow-hidden">
+                  {segs.map((seg, i) => (
+                    <div
+                      key={i}
+                      className="absolute top-0 h-full rounded-sm opacity-90"
+                      style={{
+                        left: `${(seg.startMin / TOTAL_MINUTES) * 100}%`,
+                        width: `${Math.max(((seg.endMin - seg.startMin) / TOTAL_MINUTES) * 100, 0.2)}%`,
+                        backgroundColor: row.color,
+                      }}
+                    />
+                  ))}
+                  {ticks.slice(1, -1).map((h) => (
+                    <div
+                      key={h}
+                      className="absolute top-0 h-full border-l border-white/40 pointer-events-none"
+                      style={{ left: `${(h / 24) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                {segs.length > 0 && (
+                  <div className="relative h-3.5 mt-0.5 flex items-center">
+                    {segs.map((seg, i) => {
+                      const pctStart = (seg.startMin / TOTAL_MINUTES) * 100;
+                      const pctWidth = Math.max(((seg.endMin - seg.startMin) / TOTAL_MINUTES) * 100, 0.2);
+                      const narrow = pctWidth < 12;
+                      return (
+                        <span
+                          key={i}
+                          className="absolute text-[8px] font-mono text-slate-500 dark:text-slate-400 truncate max-w-full"
+                          style={{
+                            left: `${pctStart}%`,
+                            width: `${pctWidth}%`,
+                            paddingLeft: "1px",
+                          }}
+                          title={`${minToHHMM(seg.startMin)} – ${minToHHMM(seg.endMin)}`}
+                        >
+                          {narrow ? minToHHMM(seg.startMin) : `${minToHHMM(seg.startMin)}–${minToHHMM(seg.endMin)}`}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <span className="w-14 shrink-0 text-right text-[11px] font-bold font-mono text-slate-600 dark:text-slate-300">
+              <span className="w-12 sm:w-14 shrink-0 text-right text-[10px] sm:text-[11px] font-bold font-mono text-slate-600 dark:text-slate-300 pt-0.5">
                 {totalMins > 0 ? formatHours(totalMins) : <span className="text-slate-300 dark:text-slate-500">—</span>}
               </span>
             </div>

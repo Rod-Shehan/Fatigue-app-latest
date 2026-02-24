@@ -72,6 +72,14 @@ export type ComplianceCheckResult = {
   message: string;
 };
 
+/** One sheet's compliance results for manager oversight. */
+export type ManagerComplianceItem = {
+  sheetId: string;
+  driver_name: string;
+  week_starting: string;
+  results: ComplianceCheckResult[];
+};
+
 export const api = {
   compliance: {
     check: (payload: {
@@ -128,5 +136,10 @@ export const api = {
         method: "POST",
         body: data,
       }),
+  },
+  manager: {
+    /** All drivers' compliance results (manager only). */
+    compliance: () =>
+      fetchApi<{ items: ManagerComplianceItem[] }>("/api/manager/compliance"),
   },
 };
