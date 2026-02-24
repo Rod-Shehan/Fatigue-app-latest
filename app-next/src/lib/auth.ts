@@ -15,8 +15,19 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
+        const email = (credentials?.email ?? "").trim();
+        const password = credentials?.password ?? "";
+        // Dev only: allow blank credentials to sign in as a dev user (login page stays, fields can be empty)
+        if (process.env.NODE_ENV === "development" && email === "" && password === "") {
+          const devEmail = "dev@localhost";
+          let user = await prisma.user.findUnique({ where: { email: devEmail } });
+          if (!user) {
+            user = await prisma.user.create({
+              data: { email: devEmail, name: "Dev User" },
+            });
+          }
+          return { id: user.id, email: user.email, name: user.name };
+        }
         if (!email || !password) return null;
         // Only allow dev backdoor in development; never set NEXTAUTH_CREDENTIALS_PASSWORD in production
         const devPass =
