@@ -171,6 +171,8 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
       let workMinsSinceBreak = 0;
       let pendingBreakStart: string | null = null;
       const pendingBreakSegments: number[] = [];
+      /** Only one 5h-rule violation per block; block resets when break is pressed. */
+      let violationEmittedForCurrentBlock = false;
 
       for (let i = 0; i < events.length; i++) {
         const ev = events[i];
@@ -183,29 +185,33 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
             const totalMins = pendingBreakSegments.reduce((a, b) => a + b, 0);
             const blocksOf10 = pendingBreakSegments.filter((m) => m >= 10).length;
             const valid = totalMins >= 20 && blocksOf10 >= 1;
-            if (!valid) {
+            if (!valid && !violationEmittedForCurrentBlock) {
               results.push({
                 type: "violation",
                 iconKey: "Coffee",
                 day: dayLabel,
                 message: `20 min break for 5h work not met`,
               });
-            } else {
+              violationEmittedForCurrentBlock = true;
+            }
+            if (valid) {
               workMinsSinceBreak = 0;
+              violationEmittedForCurrentBlock = false;
             }
             pendingBreakSegments.length = 0;
             pendingBreakStart = null;
           }
           workMinsSinceBreak += dur;
-          if (workMinsSinceBreak > 5 * 60) {
+          if (workMinsSinceBreak > 5 * 60 && !violationEmittedForCurrentBlock) {
             results.push({
               type: "violation",
               iconKey: "AlertTriangle",
               day: dayLabel,
               message: "More than 5h work without valid break",
             });
-            workMinsSinceBreak = 0;
+            violationEmittedForCurrentBlock = true;
           }
+          if (workMinsSinceBreak > 5 * 60) workMinsSinceBreak = 0;
         } else if (ev.type === "break") {
           if (!pendingBreakStart) pendingBreakStart = ev.time;
           pendingBreakSegments.push(dur);
@@ -213,6 +219,7 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
           pendingBreakSegments.length = 0;
           pendingBreakStart = null;
           workMinsSinceBreak = 0;
+          violationEmittedForCurrentBlock = false;
         }
       }
     } else {

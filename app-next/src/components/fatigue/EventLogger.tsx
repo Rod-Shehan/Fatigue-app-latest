@@ -46,10 +46,20 @@ const MINUTES_PER_SLOT = 30;
  * Rule: any gap shorter than 30 minutes between work is recorded as break, not non-work.
  * Rule: a completed break (has next event) shorter than 10 minutes is allocated to work time; ongoing breaks stay in break bar.
  */
+/**
+ * When set (and only for the current day), work/break segments are capped at this time
+ * and time from assumeIdleFromMs to "now" is shown as non-work ("driver forgot" / assume idle).
+ */
 export function deriveGridFromEvents(
   events: { time: string; type: string }[] | undefined,
   dateStr: string,
-  options?: { carryOverType?: "work" | "break"; carryOverEndSlot?: number }
+  options?: {
+    carryOverType?: "work" | "break";
+    carryOverEndSlot?: number;
+    assumeIdleFromMs?: number;
+    isToday?: boolean;
+    dayStart?: number;
+  }
 ): { work_time: boolean[]; breaks: boolean[]; non_work: boolean[] } {
   const work_time = Array(48).fill(false);
   const breaks = Array(48).fill(false);
@@ -58,14 +68,18 @@ export function deriveGridFromEvents(
   if (dateStr > todayStr) return { work_time, breaks, non_work };
   const isToday = dateStr === todayStr;
   const now = Date.now();
-  const dayStart = new Date(dateStr + "T00:00:00").getTime();
+  const dayStart = options?.dayStart ?? new Date(dateStr + "T00:00:00").getTime();
   const dayEnd = new Date(dateStr + "T23:59:59").getTime();
+  const assumeIdleFromMs = options?.assumeIdleFromMs && options?.isToday ? options.assumeIdleFromMs : undefined;
+  const workBreakCap = assumeIdleFromMs != null ? Math.min(now, assumeIdleFromMs) : undefined;
   const effectiveEnd = isToday ? Math.min(dayEnd, now) : dayEnd;
   const maxSlotExclusive = isToday ? Math.min(48, Math.ceil((effectiveEnd - dayStart) / (30 * 60 * 1000))) : 48;
+  const workBreakMaxSlot =
+    workBreakCap != null ? Math.min(maxSlotExclusive, Math.max(0, Math.ceil((workBreakCap - dayStart) / (30 * 60 * 1000)))) : maxSlotExclusive;
 
   const { carryOverType, carryOverEndSlot = 0 } = options ?? {};
   if (carryOverType && carryOverEndSlot > 0) {
-    const end = Math.min(carryOverEndSlot, maxSlotExclusive);
+    const end = Math.min(carryOverEndSlot, workBreakMaxSlot);
     for (let s = 0; s < end; s++) {
       if (carryOverType === "work") work_time[s] = true;
       else breaks[s] = true;
@@ -84,15 +98,16 @@ export function deriveGridFromEvents(
     const nextEv = events[i + 1];
     if (ev.type === "stop") continue;
     const start = new Date(ev.time).getTime();
-    const end = nextEv ? new Date(nextEv.time).getTime() : (isToday ? now : dayEnd);
+    const segmentEnd = nextEv ? new Date(nextEv.time).getTime() : (isToday ? now : dayEnd);
+    const end = workBreakCap != null && segmentEnd > workBreakCap ? workBreakCap : segmentEnd;
     const clampedStart = Math.max(start, dayStart);
-    const clampedEnd = Math.min(end, effectiveEnd);
+    const clampedEnd = Math.min(end, workBreakCap ?? effectiveEnd);
     const durationMinutes = Math.floor((clampedEnd - clampedStart) / 60000);
     const startSlot = Math.floor((clampedStart - dayStart) / (30 * 60 * 1000));
     const endSlot = Math.ceil((clampedEnd - dayStart) / (30 * 60 * 1000));
     const isCompletedBreak = ev.type === "break" && nextEv != null;
     const treatBreakAsWork = isCompletedBreak && durationMinutes < MIN_BREAK_BLOCK_MINUTES;
-    for (let s = Math.max(0, startSlot); s < Math.min(maxSlotExclusive, endSlot); s++) {
+    for (let s = Math.max(0, startSlot); s < Math.min(workBreakMaxSlot, endSlot); s++) {
       if (ev.type === "work" || treatBreakAsWork) work_time[s] = true;
       else if (ev.type === "break") breaks[s] = true;
     }
@@ -170,8 +185,6 @@ export function deriveDaysWithRollover<T extends { events?: { time: string; type
   for (let i = 0; i < days.length; i++) {
     const prevEvents = i > 0 ? result[i - 1].events || [] : [];
     const lastPrev = prevEvents[prevEvents.length - 1];
-    const carryOverType =
-      lastPrev && (lastPrev.type === "work" || lastPrev.type === "break") ? (lastPrev.type as "work" | "break") : null;
     const currentEvents = (result[i].events || []) as { time: string; type: string }[];
     const dateStr = getSheetDayDateString(weekStarting, i);
     const dayStart = new Date(dateStr + "T00:00:00").getTime();
@@ -181,6 +194,13 @@ export function deriveDaysWithRollover<T extends { events?: { time: string; type
     const effectiveEnd = isToday ? Math.min(dayEnd, now) : dayEnd;
     const maxSlotExclusive = isToday ? Math.min(48, Math.ceil((effectiveEnd - dayStart) / (30 * 60 * 1000))) : 48;
 
+    /* Carry over work/break from previous day only when: (1) today (so overnight work shows until they log), or (2) this day has at least one event (carry-over stops at first event). For past days with no events, do not carry over — we don't know they worked that day. */
+    const carryOverType =
+      (isToday || currentEvents.length > 0) &&
+      lastPrev &&
+      (lastPrev.type === "work" || lastPrev.type === "break")
+        ? (lastPrev.type as "work" | "break")
+        : null;
     let carryOverEndSlot = 0;
     if (carryOverType) {
       const firstEv = currentEvents[0];
@@ -192,9 +212,14 @@ export function deriveDaysWithRollover<T extends { events?: { time: string; type
       }
     }
 
+    const assumeIdleFrom = (result[i] as { assume_idle_from?: string }).assume_idle_from;
+
     const derived = deriveGridFromEvents(currentEvents.length ? currentEvents : undefined, dateStr, {
       carryOverType: carryOverType ?? undefined,
       carryOverEndSlot: carryOverEndSlot || undefined,
+      assumeIdleFromMs: assumeIdleFrom ? new Date(assumeIdleFrom).getTime() : undefined,
+      isToday,
+      dayStart,
     });
     result[i] = { ...result[i], ...derived };
   }

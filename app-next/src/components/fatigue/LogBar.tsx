@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Briefcase, Coffee, Moon, Square } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getEventsInTimeOrder, getInsufficientRestMessage } from "@/lib/rolling-events";
 
 const WORK_TARGET_MINUTES = 5 * 60;
 const BREAK_TARGET_MINUTES = 20;
@@ -127,7 +128,12 @@ function getBreakCompleteByTime(events: { time: string; type: string }[], nowMs:
   return breakStartMs + minutesForBreak * 60 * 1000;
 }
 
-type DayData = { events?: { time: string; type: string }[] };
+type DayData = {
+  events?: { time: string; type: string }[];
+  truck_rego?: string;
+  destination?: string;
+  start_kms?: number | null;
+};
 
 export default function LogBar({
   days,
@@ -137,6 +143,9 @@ export default function LogBar({
   onEndShiftRequest,
   leadingIcon,
   workRelevantComplianceMessages,
+  onAssumeIdle,
+  onStartShiftBlocked,
+  currentDayDisplay,
 }: {
   days: DayData[];
   currentDayIndex: number;
@@ -148,6 +157,12 @@ export default function LogBar({
   leadingIcon?: React.ReactNode;
   /** Prospective compliance messages (rest, non-work, limits) if work were logged now. When set, shown when user taps Work. */
   workRelevantComplianceMessages?: string[];
+  /** When provided and in work/break state, "Assume idle" is shown. Call to mark from now as non-work (forgot to end shift). */
+  onAssumeIdle?: () => void;
+  /** When Start shift is blocked (rego/destination/start KM missing), called after user dismisses so parent can scroll to day card. */
+  onStartShiftBlocked?: () => void;
+  /** When provided, used for Start shift gate (rego/destination/start KM) so carried-over values count. */
+  currentDayDisplay?: DayData;
 }) {
   const [pendingType, setPendingType] = useState<string | null>(null);
   const [workWarning, setWorkWarning] = useState<{ message: string; confirmLabel: string; onConfirm: () => void; onCancel?: () => void; subtext?: string } | null>(null);
@@ -159,6 +174,7 @@ export default function LogBar({
   }, []);
 
   const day = days[currentDayIndex];
+  const dayForCardFields = currentDayDisplay ?? day;
   const events = day?.events || [];
   const lastEvent = events[events.length - 1];
   const currentType = lastEvent && lastEvent.type !== "stop" ? lastEvent.type : null;
@@ -232,27 +248,39 @@ export default function LogBar({
     return "Breaks under 10 minutes are automatically counted as work time.";
   };
 
-  /** Warning when starting work with &lt;7h non-work since last shift. */
+  /** Warning when starting work with <7h non-work since last shift (rolling time: last stop anywhere). */
   const getInsufficientRestWarning = () => {
     if (currentType !== null && currentType !== "stop") return null;
-    let lastStopTime: number | null = null;
-    for (let d = 0; d <= currentDayIndex; d++) {
-      const evs = days[d]?.events ?? [];
-      for (const ev of evs) {
-        if (ev.type === "stop") {
-          const t = new Date(ev.time).getTime();
-          if (lastStopTime === null || t > lastStopTime) lastStopTime = t;
-        }
-      }
-    }
-    if (lastStopTime === null) return null;
-    const restHours = (Date.now() - lastStopTime) / (3600 * 1000);
-    if (restHours >= MIN_REST_HOURS_BETWEEN_SHIFTS) return null;
-    return "Less than 7 hours non-work time since last shift. Starting work may not meet rest requirements.";
+    const rollingEvents = getEventsInTimeOrder(days);
+    return getInsufficientRestMessage(rollingEvents, Date.now(), MIN_REST_HOURS_BETWEEN_SHIFTS);
   };
 
   const handleLog = (type: string) => {
     if (type === currentType) return;
+
+    const isStartingShift = type === "work" && (currentType === null || currentType === "stop");
+    if (isStartingShift) {
+      const hasRego = (dayForCardFields?.truck_rego ?? "").toString().trim() !== "";
+      const hasDestination = (dayForCardFields?.destination ?? "").toString().trim() !== "";
+      const hasStartKms = dayForCardFields?.start_kms != null && !Number.isNaN(Number(dayForCardFields.start_kms));
+      if (!hasRego || !hasDestination || !hasStartKms) {
+        const missing: string[] = [];
+        if (!hasRego) missing.push("Rego");
+        if (!hasDestination) missing.push("Destination");
+        if (!hasStartKms) missing.push("Start KM");
+        setWorkWarning({
+          message: `Please complete today's card before starting shift: ${missing.join(", ")}.`,
+          confirmLabel: "Go to today's card",
+          subtext: "Fill in the fields above, then tap Start shift again.",
+          onConfirm: () => {
+            setWorkWarning(null);
+            onStartShiftBlocked?.();
+          },
+          onCancel: () => setWorkWarning(null),
+        });
+        return;
+      }
+    }
 
     if (pendingType === type) {
       if (type === "work") {
@@ -452,6 +480,14 @@ export default function LogBar({
               />
             )}
           </div>
+          {onAssumeIdle && (
+            <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+              Forgot to end shift?{" "}
+              <button type="button" onClick={onAssumeIdle} className="underline font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100">
+                Mark as non-work from now
+              </button>
+            </p>
+          )}
         </div>
       )}
     </div>

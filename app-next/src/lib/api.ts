@@ -45,6 +45,8 @@ export type DayData = {
   breaks?: boolean[];
   non_work?: boolean[];
   events?: Array<{ time: string; type: string; lat?: number; lng?: number; accuracy?: number }>;
+  /** When set (ISO string), work/break is capped at this time on that day; from then to "now" shows as non-work ("forgot to end shift" / assume idle). */
+  assume_idle_from?: string;
 };
 export type FatigueSheet = {
   id: string;

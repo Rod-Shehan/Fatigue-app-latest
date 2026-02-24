@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, FileText, Loader2, CheckCircle2, ScrollText, ChevronDown, XCircle, Download, LayoutDashboard, Square } from "lucide-react";
+import { Save, FileText, Loader2, CheckCircle2, ScrollText, ChevronDown, XCircle, Download, LayoutDashboard, Square, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/PageHeader";
 import SheetHeader from "@/components/fatigue/SheetHeader";
@@ -66,6 +66,69 @@ function getCurrentDayIndex(weekStarting: string): number {
   return Math.max(0, Math.min(6, diffDays));
 }
 
+/**
+ * Day card rego and start_km carry-over: when the previous day did not end with "End shift"
+ * and the same carry-over rule as work/break applies (this day is today or has events),
+ * fill this day's truck_rego and start_kms from the previous day when this day has none.
+ * Reset (no carry) when previous day ended with "End shift" or when carry-over rules don't apply.
+ */
+function getDayWithCarriedOverCardInfo(
+  days: DayData[],
+  dayIndex: number,
+  weekStarting: string
+): DayData {
+  const day = days[dayIndex] ?? {};
+  if (dayIndex === 0) return day;
+  const prev = days[dayIndex - 1];
+  const prevEvents = prev?.events ?? [];
+  const lastPrev = prevEvents[prevEvents.length - 1];
+  const prevEndedWithStop = lastPrev?.type === "stop";
+  const dateStr = getSheetDayDateString(weekStarting, dayIndex);
+  const isToday = dateStr === getTodayLocalDateString();
+  const hasEvents = (day.events?.length ?? 0) > 0;
+  const carryOverApplies = !prevEndedWithStop && (isToday || hasEvents);
+  if (!carryOverApplies) return day;
+  const hasOwnRego = (day.truck_rego ?? "").toString().trim() !== "";
+  const hasOwnStartKms = day.start_kms != null && !Number.isNaN(Number(day.start_kms));
+  return {
+    ...day,
+    truck_rego: hasOwnRego ? day.truck_rego : (prev?.truck_rego ?? day.truck_rego ?? ""),
+    start_kms: hasOwnStartKms ? day.start_kms : (prev?.start_kms ?? day.start_kms),
+  };
+}
+
+/** Reminder when driver may have forgotten to log work / break / end shift. */
+const WORK_BREAK_DUE_MIN = 5 * 60;
+const WORK_FORGOT_END_SHIFT_MIN = 12 * 60;
+const BREAK_COMPLETE_MIN = 20;
+const BREAK_LONG_MIN = 60;
+
+function getForgottenActionReminder(
+  days: DayData[],
+  currentDayIndex: number
+): { message: string; variant: "break-due" | "end-shift" | "break-complete" | "break-long" } | null {
+  const day = days[currentDayIndex];
+  const events = day?.events ?? [];
+  const last = events[events.length - 1];
+  if (!last || last.type === "stop") return null;
+  const elapsedMin = Math.floor((Date.now() - new Date(last.time).getTime()) / 60000);
+  if (last.type === "work") {
+    if (elapsedMin >= WORK_FORGOT_END_SHIFT_MIN)
+      return { message: "Work has been running for 12+ hours. Tap End Shift if you've finished.", variant: "end-shift" };
+    if (elapsedMin >= WORK_BREAK_DUE_MIN)
+      return { message: "Time for your 20 min break — tap Break when you start.", variant: "break-due" };
+    return null;
+  }
+  if (last.type === "break") {
+    if (elapsedMin >= BREAK_LONG_MIN)
+      return { message: "You've been on break for over an hour. Tap Work to resume or End Shift to finish.", variant: "break-long" };
+    if (elapsedMin >= BREAK_COMPLETE_MIN)
+      return { message: "Break complete — tap Work to resume or End Shift to finish.", variant: "break-complete" };
+    return null;
+  }
+  return null;
+}
+
 export function SheetDetail({ sheetId }: { sheetId: string }) {
   const queryClient = useQueryClient();
   const [sheetData, setSheetData] = useState<{
@@ -103,6 +166,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveMenuRef = useRef<HTMLDivElement>(null);
   const dayCardsRef = useRef<HTMLDivElement>(null);
+  const currentDayCardRef = useRef<HTMLDivElement | null>(null);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -122,6 +186,11 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
   const currentDayIndex = useMemo(
     () => getCurrentDayIndex(sheetData.week_starting),
     [sheetData.week_starting, now]
+  );
+
+  const forgottenActionReminder = useMemo(
+    () => getForgottenActionReminder(sheetData.days, currentDayIndex),
+    [sheetData.days, currentDayIndex, now]
   );
 
   const { data: sheet, isLoading } = useQuery({
@@ -276,6 +345,17 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     });
     setIsDirty(true);
   }, []);
+
+  const handleAssumeIdle = useCallback(() => {
+    setSheetData((prev) => {
+      const newDays = [...prev.days];
+      const day = newDays[currentDayIndex] ?? {};
+      newDays[currentDayIndex] = { ...day, assume_idle_from: new Date().toISOString() };
+      const withGrids = deriveDaysWithRollover(newDays, prev.week_starting);
+      return { ...prev, days: applyLast24hBreakNonWorkRule(withGrids, prev.week_starting, prev.last_24h_break || undefined) };
+    });
+    setIsDirty(true);
+  }, [currentDayIndex]);
 
   const handleLogEvent = useCallback((dayIndex: number, type: string) => {
     setSheetData((prev) => {
@@ -472,15 +552,29 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-6">
       {sheetData.status !== "completed" && (
-        <LogBar
-          days={sheetData.days}
-          currentDayIndex={currentDayIndex}
-          weekStarting={sheetData.week_starting}
-          onLogEvent={handleLogEvent}
-          onEndShiftRequest={handleEndShiftRequest}
-          leadingIcon={<FileText className="w-5 h-5" />}
-          workRelevantComplianceMessages={prospectiveWorkWarnings}
-        />
+        <>
+          <LogBar
+            days={sheetData.days}
+            currentDayIndex={currentDayIndex}
+            weekStarting={sheetData.week_starting}
+            onLogEvent={handleLogEvent}
+            onEndShiftRequest={handleEndShiftRequest}
+            leadingIcon={<FileText className="w-5 h-5" />}
+            workRelevantComplianceMessages={prospectiveWorkWarnings}
+            onAssumeIdle={handleAssumeIdle}
+            onStartShiftBlocked={() => currentDayCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            currentDayDisplay={getDayWithCarriedOverCardInfo(sheetData.days, currentDayIndex, sheetData.week_starting)}
+          />
+          {forgottenActionReminder && (
+            <div
+              role="alert"
+              className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="flex-1 font-medium">{forgottenActionReminder.message}</p>
+            </div>
+          )}
+        </>
       )}
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         <PageHeader
@@ -646,10 +740,10 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
               <SheetHeader sheetData={sheetData} onChange={handleHeaderChange} />
             </motion.div>
             {sheetData.days.map((day, idx) => (
-                <div key={idx} className={sheetData.status !== "completed" ? "scroll-mt-48" : "scroll-mt-6"}>
+                <div key={idx} ref={idx === currentDayIndex ? currentDayCardRef : null} className={sheetData.status !== "completed" ? "scroll-mt-48" : "scroll-mt-6"}>
                   <DayEntry
                     dayIndex={idx}
-                    dayData={day}
+                    dayData={getDayWithCarriedOverCardInfo(sheetData.days, idx, sheetData.week_starting)}
                     onUpdate={handleDayUpdate}
                     weekStart={sheetData.week_starting}
                     regos={regos}
