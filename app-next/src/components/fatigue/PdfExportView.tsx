@@ -150,6 +150,10 @@ export default function PdfExportView({ sheetData, regos = [], onHeaderChange }:
         })}
       </div>
 
+      <p className="mt-3 text-[10px] text-slate-500 italic">
+        Work, break and end shift events include GPS location where available for audit and compliance evidence.
+      </p>
+
       {sheetData.signature && (
         <div className="mt-4 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">

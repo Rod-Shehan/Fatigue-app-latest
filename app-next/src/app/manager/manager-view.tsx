@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus, AlertTriangle, Coffee, Moon, Clock, TrendingUp, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus, AlertTriangle, Coffee, Moon, Clock, TrendingUp, ExternalLink, MapPin, Map } from "lucide-react";
+import { getThisWeekSunday } from "@/lib/weeks";
+
+const ManagerEventMap = dynamic(
+  () => import("@/components/ManagerEventMap").then((m) => m.ManagerEventMap),
+  { ssr: false }
+);
 
 const COMPLIANCE_ICON_MAP = {
   Coffee,
@@ -26,6 +33,8 @@ const COMPLIANCE_ICON_MAP = {
   CheckCircle2,
 } as const;
 
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 function formatWeekLabel(weekStarting: string): string {
   return new Date(weekStarting + "T12:00:00").toLocaleDateString("en-AU", {
     weekday: "short",
@@ -33,6 +42,17 @@ function formatWeekLabel(weekStarting: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+/** Format compliance result day for display (e.g. "Sun" + week -> "Sun, 22 Feb"). */
+function formatResultDay(day: string, weekStarting: string): string {
+  const i = DAY_LABELS.indexOf(day);
+  if (i >= 0 && weekStarting) {
+    const d = new Date(weekStarting + "T12:00:00");
+    d.setDate(d.getDate() + i);
+    return `${day}, ${d.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`;
+  }
+  return day;
 }
 
 const LAST_SHEET_KEY = "fatigue-last-sheet-id";
@@ -79,6 +99,14 @@ export function ManagerView() {
     second_driver: "",
   });
 
+  const [mapWeekStarting, setMapWeekStarting] = useState<string>("");
+  const [mapDriverName, setMapDriverName] = useState<string>("");
+  const [mapEventTypes, setMapEventTypes] = useState({
+    work: true,
+    break: true,
+    stop: true,
+  });
+
   const { data: sheets = [], isLoading: sheetsLoading } = useQuery({
     queryKey: ["sheets"],
     queryFn: () => api.sheets.list(),
@@ -93,9 +121,36 @@ export function ManagerView() {
   const { data: complianceOversight, isLoading: oversightLoading } = useQuery({
     queryKey: ["manager", "compliance"],
     queryFn: () => api.manager.compliance(),
+    refetchOnWindowFocus: true,
   });
   const oversightItems: ManagerComplianceItem[] = complianceOversight?.items ?? [];
   const itemsWithIssues = oversightItems.filter((i) => i.results.length > 0);
+
+  const { data: mapEventsData, isLoading: mapEventsLoading } = useQuery({
+    queryKey: ["manager", "map-events", mapWeekStarting, mapDriverName],
+    queryFn: () =>
+      api.manager.mapEvents({
+        ...(mapWeekStarting && { weekStarting: mapWeekStarting }),
+        ...(mapDriverName && { driverName: mapDriverName }),
+      }),
+  });
+  const mapEvents = mapEventsData?.events ?? [];
+
+  const mapWeeks = useMemo(() => {
+    const weeks = [...new Set(sheets.map((s) => s.week_starting).filter(Boolean))];
+    return weeks.sort().reverse();
+  }, [sheets]);
+  const mapDrivers = useMemo(() => {
+    const names = [...new Set(sheets.map((s) => s.driver_name).filter(Boolean))];
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [sheets]);
+
+  const mapEventTypesSet = useMemo(() => {
+    const checked = (["work", "break", "stop"] as const).filter(
+      (t) => mapEventTypes[t]
+    );
+    return new Set(checked);
+  }, [mapEventTypes]);
 
   useEffect(() => {
     if (!selectedSheet || selectedSheet.id !== selectedSheetId) return;
@@ -115,6 +170,7 @@ export function ManagerView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sheet", selectedSheetId] });
       queryClient.invalidateQueries({ queryKey: ["sheets"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "compliance"] });
     },
   });
 
@@ -404,13 +460,203 @@ export function ManagerView() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 text-center text-slate-500 dark:text-slate-400">
-            <p className="text-sm">
-              Manager dashboard and reporting will appear here.
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Compliance oversight
+              </h2>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Violations and warnings from all drivers’ fatigue sheets. Click a sheet to open and edit.
             </p>
-            <p className="text-xs mt-2">
-              Use the back button to return to your sheets.
+            {oversightLoading ? (
+              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <Loader2 className="w-5 h-5 text-slate-500 dark:text-slate-400 shrink-0 animate-spin" />
+                <span className="text-sm text-slate-600 dark:text-slate-300">Loading compliance…</span>
+              </div>
+            ) : itemsWithIssues.length === 0 ? (
+              <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-200">
+                  {oversightItems.length === 0
+                    ? "No sheets yet."
+                    : "All drivers compliant — no violations or warnings."}
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {itemsWithIssues.map((item) => {
+                  const violations = item.results.filter((r) => r.type === "violation");
+                  const warnings = item.results.filter((r) => r.type === "warning");
+                  return (
+                    <div
+                      key={item.sheetId}
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">
+                            {item.driver_name || "Unnamed driver"}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Week of {formatWeekLabel(item.week_starting)}
+                          </p>
+                          {item.totalEvents != null && item.totalEvents > 0 && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3 shrink-0" aria-hidden />
+                              Location: {item.eventsWithLocation ?? 0}/{item.totalEvents} events
+                            </p>
+                          )}
+                        </div>
+                        <Link href={`/sheets/${item.sheetId}`}>
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Open sheet
+                          </Button>
+                        </Link>
+                      </div>
+                      {violations.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] uppercase tracking-wider text-red-500 dark:text-red-400 font-bold">
+                            Violations ({violations.length})
+                          </p>
+                          {violations.map((v, i) => {
+                            const Icon = COMPLIANCE_ICON_MAP[v.iconKey as keyof typeof COMPLIANCE_ICON_MAP];
+                            return (
+                              <div
+                                key={`v-${i}`}
+                                className="flex items-start gap-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-2.5"
+                              >
+                                {Icon && <Icon className="w-4 h-4 text-red-500 dark:text-red-400 mt-0.5 shrink-0" />}
+                                <p className="text-xs text-red-700 dark:text-red-200">
+                                  {v.message} — {formatResultDay(v.day, item.week_starting)}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {warnings.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] uppercase tracking-wider text-amber-500 dark:text-amber-400 font-bold">
+                            Warnings ({warnings.length})
+                          </p>
+                          {warnings.map((w, i) => {
+                            const Icon = COMPLIANCE_ICON_MAP[w.iconKey as keyof typeof COMPLIANCE_ICON_MAP];
+                            return (
+                              <div
+                                key={`w-${i}`}
+                                className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5"
+                              >
+                                {Icon && <Icon className="w-4 h-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />}
+                                <p className="text-xs text-amber-700 dark:text-amber-200">
+                                  {w.message}
+                                  {w.message.includes("72h window ending") ? "" : ` — ${formatResultDay(w.day, item.week_starting)}`}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Map className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Event map
+              </h2>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Driver time inputs with location. Filter by week and driver, then click a marker to see details.
             </p>
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                    Week
+                  </Label>
+                  <Select
+                    value={mapWeekStarting || "all"}
+                    onValueChange={(v) => setMapWeekStarting(v === "all" ? "" : v)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="All weeks" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All weeks</SelectItem>
+                      {mapWeeks.map((w) => (
+                        <SelectItem key={w} value={w}>
+                          {formatWeekLabel(w)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                    Driver
+                  </Label>
+                  <Select
+                    value={mapDriverName || "all"}
+                    onValueChange={(v) => setMapDriverName(v === "all" ? "" : v)}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="All drivers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All drivers</SelectItem>
+                      {mapDrivers.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
+                    Event types
+                  </Label>
+                  <div className="flex gap-3">
+                    {(["work", "break", "stop"] as const).map((type) => (
+                      <label
+                        key={type}
+                        className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={mapEventTypes[type]}
+                          onChange={(e) =>
+                            setMapEventTypes((t) => ({ ...t, [type]: e.target.checked }))
+                          }
+                          className="rounded border-slate-300 dark:border-slate-600"
+                        />
+                        <span className="capitalize">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {mapEventsLoading ? (
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 min-h-[320px]">
+                  <Loader2 className="w-5 h-5 text-slate-500 animate-spin shrink-0" />
+                  <span className="text-sm text-slate-600 dark:text-slate-300">Loading map events…</span>
+                </div>
+              ) : (
+                <ManagerEventMap
+                  events={mapEvents}
+                  eventTypesFilter={mapEventTypesSet}
+                  className="w-full"
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -67,7 +67,7 @@ export type FatigueSheet = {
 /** Compliance check result (server is source of truth). */
 export type ComplianceCheckResult = {
   type: "violation" | "warning";
-  iconKey: string;
+  iconKey: "Coffee" | "AlertTriangle" | "Moon" | "Clock" | "TrendingUp" | "CheckCircle2" | "MapPin";
   day: string;
   message: string;
 };
@@ -78,6 +78,21 @@ export type ManagerComplianceItem = {
   driver_name: string;
   week_starting: string;
   results: ComplianceCheckResult[];
+  eventsWithLocation?: number;
+  totalEvents?: number;
+};
+
+/** Single geo event for manager map (from GET /api/manager/map-events). */
+export type MapEvent = {
+  lat: number;
+  lng: number;
+  type: string;
+  time: string;
+  driver_name: string;
+  sheetId: string;
+  week_starting: string;
+  day_label?: string;
+  accuracy?: number;
 };
 
 export const api = {
@@ -94,6 +109,8 @@ export const api = {
       last24hBreak?: string;
       weekStarting?: string;
       prevWeekStarting?: string;
+      currentDayIndex?: number;
+      slotOffsetWithinToday?: number;
     }) =>
       fetchApi<{ results: ComplianceCheckResult[] }>("/api/compliance/check", {
         method: "POST",
@@ -141,5 +158,15 @@ export const api = {
     /** All drivers' compliance results (manager only). */
     compliance: () =>
       fetchApi<{ items: ManagerComplianceItem[] }>("/api/manager/compliance"),
+    /** Geo events for map (manager only). Optional filters: weekStarting, driverName. */
+    mapEvents: (params?: { weekStarting?: string; driverName?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.weekStarting) sp.set("weekStarting", params.weekStarting);
+      if (params?.driverName) sp.set("driverName", params.driverName);
+      const q = sp.toString();
+      return fetchApi<{ events: MapEvent[] }>(
+        `/api/manager/map-events${q ? `?${q}` : ""}`
+      );
+    },
   },
 };

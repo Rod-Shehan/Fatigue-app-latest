@@ -249,17 +249,32 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     );
   }, [allSheets, sheetData.driver_name, sheetData.week_starting, sheetId]);
 
-  const compliancePayload = useMemo(
-    () => ({
+  const compliancePayload = useMemo(() => {
+    const today = new Date(now);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const slotOffsetWithinToday = Math.min(
+      48,
+      Math.max(0, Math.floor((now - todayStart) / (30 * 60 * 1000)))
+    );
+    return {
       days: sheetData.days,
       driverType: sheetData.driver_type,
       prevWeekDays: prevWeekSheet?.days ?? null,
       last24hBreak: sheetData.last_24h_break || undefined,
       weekStarting: sheetData.week_starting || undefined,
       prevWeekStarting: prevWeekSheet?.week_starting ?? undefined,
-    }),
-    [sheetData.days, sheetData.driver_type, sheetData.last_24h_break, sheetData.week_starting, prevWeekSheet]
-  );
+      currentDayIndex,
+      slotOffsetWithinToday,
+    };
+  }, [
+    sheetData.days,
+    sheetData.driver_type,
+    sheetData.last_24h_break,
+    sheetData.week_starting,
+    prevWeekSheet,
+    currentDayIndex,
+    now,
+  ]);
   const { data: complianceData, isLoading: complianceLoading } = useQuery({
     queryKey: ["compliance", sheetId, compliancePayload],
     queryFn: () => api.compliance.check(compliancePayload),

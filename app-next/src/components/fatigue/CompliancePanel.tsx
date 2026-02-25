@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, CheckCircle2, Clock, Coffee, Loader2, Moon, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Coffee, Loader2, MapPin, Moon, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ComplianceCheckResult } from "@/lib/api";
 import { getSheetDayDateString } from "@/lib/weeks";
@@ -47,6 +47,7 @@ const ICON_MAP = {
   Clock,
   TrendingUp,
   CheckCircle2,
+  MapPin,
 } as const;
 
 type DayLike = { work_time?: boolean[]; breaks?: boolean[]; non_work?: boolean[] };

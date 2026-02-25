@@ -4,17 +4,20 @@
  */
 
 import { getSheetDayDateString } from "@/lib/weeks";
+import { haversineDistanceKm } from "@/lib/geo";
 
 export type ComplianceDayData = {
   work_time?: boolean[];
   breaks?: boolean[];
   non_work?: boolean[];
-  events?: { time: string; type: string }[];
+  events?: { time: string; type: string; lat?: number; lng?: number; accuracy?: number }[];
+  start_kms?: number | null;
+  end_kms?: number | null;
 };
 
 export type ComplianceCheckResult = {
   type: "violation" | "warning";
-  iconKey: "Coffee" | "AlertTriangle" | "Moon" | "Clock" | "TrendingUp" | "CheckCircle2";
+  iconKey: "Coffee" | "AlertTriangle" | "Moon" | "Clock" | "TrendingUp" | "CheckCircle2" | "MapPin";
   day: string;
   message: string;
 };
@@ -242,7 +245,15 @@ function checkSoloRules(
   days: ComplianceDayData[],
   results: ComplianceCheckResult[],
   prevCount: number,
-  soloOptions?: { weekStarting?: string; prevWeekStarting?: string; last24hBreak?: string }
+  soloOptions?: {
+    weekStarting?: string;
+    prevWeekStarting?: string;
+    last24hBreak?: string;
+    /** Current day index in the current week (0–6). When set with slotOffsetWithinToday, 72h rule is retrospective from now. */
+    currentDayIndex?: number;
+    /** Slots (0–48) of today already elapsed so the 72h window ends at "now". */
+    slotOffsetWithinToday?: number;
+  }
 ) {
   const hasAnyWork = days.some(dayHasWork);
   if (!hasAnyWork) return;
@@ -333,54 +344,55 @@ function checkSoloRules(
 
   /*
    * 72-hour rule (Solo): rolling 72h must have ≥27h non-work and ≥3 blocks of ≥7h non-work.
-   * 24h continuous non-work resets: we only evaluate within each segment (between 24h breaks).
-   *
-   * Option used: "Trailing window only" — check only the single 72-hour window that ends at the
-   * end of the segment (i.e. the most recent 72 hours). This avoids warning on every historical
-   * window; we only warn if the current/latest 72h period does not meet the rule.
+   * Rule is retrospective from NOW only; it resets after any ≥24h non-work (driver or system).
+   * We only evaluate the single 72h window ending at "now" for the segment that contains today.
+   * Past segments are skipped so we never warn on historical windows.
    */
   const weekStarting = soloOptions?.weekStarting ?? "";
   const prevWeekStarting = soloOptions?.prevWeekStarting ?? "";
+  const currentDayIndex = soloOptions?.currentDayIndex;
+  const slotOffsetWithinToday = soloOptions?.slotOffsetWithinToday;
+  const todayExtended =
+    currentDayIndex != null && currentDayIndex >= 0 && currentDayIndex <= 6 && slotOffsetWithinToday != null
+      ? prevCount + currentDayIndex
+      : null;
+
   for (const segment of segments24) {
+    const segmentContainsToday = todayExtended != null && segment.includes(todayExtended);
+    if (!segmentContainsToday) continue;
+
     const segmentDays = segment.map((i) => days[i]);
     const nonWork = flatSlots(segmentDays, "non_work");
     const work = flatSlots(segmentDays, "work_time");
     const breaks = flatSlots(segmentDays, "breaks");
     const getLabelSlot = (slotIndex: number) => getLabel(segment[Math.min(Math.floor(slotIndex / SLOTS_PER_DAY), segment.length - 1)]);
-    if (nonWork.length >= SLOTS_72H) {
-      const start = nonWork.length - SLOTS_72H;
-      const endSlotInSegment = start + SLOTS_72H - 1;
-      const dayIdxAtEnd = segment[Math.min(Math.floor(endSlotInSegment / SLOTS_PER_DAY), segment.length - 1)];
-      const slotWithinDay = endSlotInSegment % SLOTS_PER_DAY;
-      const minutesFromMidnight = (slotWithinDay + 1) * 30;
-      const endHour = Math.floor(minutesFromMidnight / 60);
-      const endMin = minutesFromMidnight % 60;
-      const timeStr = endHour === 24 ? "24:00" : `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
-      const dateStr = getExtendedDayDate(dayIdxAtEnd, weekStarting, prevWeekStarting, prevCount);
-      const formattedDate = dateStr ? new Date(dateStr + "T12:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
-      const windowEndSuffix = formattedDate ? ` — 72h window ending ${formattedDate} at ${timeStr}` : "";
 
-      const window = nonWork.slice(start, start + SLOTS_72H);
-      const totalNonWork = window.filter(Boolean).length * 0.5;
-      const sevenHrBlocks = countContinuousBlocksOfAtLeast(window, 7);
-      const hasData = window.some((_, i) => work[start + i] || breaks[start + i]);
-      if (hasData) {
-        if (totalNonWork < 27) {
-          results.push({
-            type: "warning",
-            iconKey: "TrendingUp",
-            day: getLabelSlot(endSlotInSegment),
-            message: `Need ≥27 hrs non-work in any rolling 72hr period (24h non-work resets this rule; this window: ${totalNonWork}h)${windowEndSuffix}`,
-          });
-        } else if (sevenHrBlocks < 3) {
-          results.push({
-            type: "warning",
-            iconKey: "Moon",
-            day: getLabelSlot(endSlotInSegment),
-            message: `Need ≥3 blocks of ≥7 continuous hrs non-work in any rolling 72hrs (24h non-work resets; found: ${sevenHrBlocks})${windowEndSuffix}`,
-          });
-        }
-      }
+    const daysBeforeToday = segment.filter((i) => i < todayExtended!).length;
+    const effectiveEndSlot = daysBeforeToday * SLOTS_PER_DAY + Math.min(48, Math.max(0, slotOffsetWithinToday ?? 48));
+
+    if (effectiveEndSlot < SLOTS_72H) continue;
+    const start = effectiveEndSlot - SLOTS_72H;
+    const window = nonWork.slice(start, effectiveEndSlot);
+    const totalNonWork = window.filter(Boolean).length * 0.5;
+    const sevenHrBlocks = countContinuousBlocksOfAtLeast(window, 7);
+    const hasData = window.some((_, i) => work[start + i] || breaks[start + i]);
+    if (!hasData) continue;
+
+    const windowEndSuffix = " — 72h window ending now";
+    if (totalNonWork < 27) {
+      results.push({
+        type: "warning",
+        iconKey: "TrendingUp",
+        day: getLabelSlot(effectiveEndSlot - 1),
+        message: `Need ≥27 hrs non-work in any rolling 72hr period (24h non-work resets; this window: ${totalNonWork}h)${windowEndSuffix}`,
+      });
+    } else if (sevenHrBlocks < 3) {
+      results.push({
+        type: "warning",
+        iconKey: "Moon",
+        day: getLabelSlot(effectiveEndSlot - 1),
+        message: `Need ≥3 blocks of ≥7 continuous hrs non-work in any rolling 72hrs (24h non-work resets; found: ${sevenHrBlocks})${windowEndSuffix}`,
+      });
     }
   }
 }
@@ -455,6 +467,136 @@ function checkTwoUpRules(days: ComplianceDayData[], results: ComplianceCheckResu
   }
 }
 
+/** Max accuracy (m) to trust for GPS-based checks; worse = skip that point. */
+const GPS_ACCURACY_MAX_M = 500;
+/** Min break duration (min) to check for moving vehicle. */
+const BREAK_MIN_DURATION_MINS = 20;
+/** Distance (km) above which break is considered "moving". */
+const BREAK_MOVING_DISTANCE_KM = 5;
+/** Odometer vs GPS ratio: warn if GPS/odometer < this or > 1/this. */
+const ODOMETER_GPS_RATIO_MIN = 0.3;
+const ODOMETER_GPS_RATIO_MAX = 1 / ODOMETER_GPS_RATIO_MIN;
+/** Min events with location to run odometer vs GPS check. */
+const ODOMETER_GPS_MIN_POINTS = 2;
+/** Fraction of events without location above which to suggest enabling location. */
+const LOCATION_EVIDENCE_WARN_FRACTION = 0.5;
+
+type EventWithDay = { time: string; type: string; lat?: number; lng?: number; accuracy?: number; dayIndex: number };
+
+function flattenEventsByTime(days: ComplianceDayData[]): EventWithDay[] {
+  const out: EventWithDay[] = [];
+  days.forEach((day, dayIndex) => {
+    (day.events ?? []).forEach((ev) => out.push({ ...ev, dayIndex }));
+  });
+  out.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  return out;
+}
+
+/**
+ * Two-Up: 7h rest must be "not in a moving vehicle". The driver is in the same vehicle (rego unchanged)
+ * between break and the next work. So GPS should not change between break and next work — if it does,
+ * the vehicle moved during the break. Warn when break duration >= 20 min and distance to next *work*
+ * event is large.
+ */
+function checkRestBreakMovingVehicle(
+  days: ComplianceDayData[],
+  results: ComplianceCheckResult[],
+  options: { weekStarting?: string; prevWeekStarting?: string; prevCount: number }
+) {
+  const { prevCount, weekStarting = "", prevWeekStarting = "" } = options;
+  const getLabel = (dayIdx: number) => {
+    const ci = dayIdx - prevCount;
+    return ci < 0 ? `prev+${dayIdx + 1}` : DAY_LABELS[ci] ?? `D${dayIdx + 1}`;
+  };
+  const flat = flattenEventsByTime(days);
+  for (let i = 0; i < flat.length; i++) {
+    if (flat[i].type !== "break") continue;
+    const next = flat[i + 1];
+    if (!next || next.type !== "work") continue;
+    if (flat[i].lat == null || flat[i].lng == null || next.lat == null || next.lng == null) continue;
+    const acc = flat[i].accuracy ?? 0;
+    const nextAcc = next.accuracy ?? 0;
+    if (acc > GPS_ACCURACY_MAX_M || nextAcc > GPS_ACCURACY_MAX_M) continue;
+    const durationMin = Math.floor((new Date(next.time).getTime() - new Date(flat[i].time).getTime()) / 60000);
+    if (durationMin < BREAK_MIN_DURATION_MINS) continue;
+    const distanceKm = haversineDistanceKm(flat[i].lat!, flat[i].lng!, next.lat!, next.lng!);
+    if (distanceKm <= BREAK_MOVING_DISTANCE_KM) continue;
+    results.push({
+      type: "warning",
+      iconKey: "MapPin",
+      day: getLabel(flat[i].dayIndex),
+      message: `Break may have been taken in a moving vehicle (${distanceKm.toFixed(1)} km over ${durationMin} min) — 7h rest rule may require stationary rest.`,
+    });
+  }
+}
+
+/**
+ * Warn if recorded odometer (end_kms - start_kms) is implausible vs cumulative GPS distance for the day.
+ */
+function checkOdometerVsGpsPlausibility(
+  days: ComplianceDayData[],
+  results: ComplianceCheckResult[],
+  options: { weekStarting?: string; prevWeekStarting?: string; prevCount: number }
+) {
+  const { prevCount, weekStarting = "", prevWeekStarting = "" } = options;
+  const getLabel = (dayIdx: number) => {
+    const ci = dayIdx - prevCount;
+    return ci < 0 ? `prev+${dayIdx + 1}` : DAY_LABELS[ci] ?? `D${dayIdx + 1}`;
+  };
+  days.forEach((day, dayIndex) => {
+    const events = day.events ?? [];
+    const withLoc = events.filter((e) => e.lat != null && e.lng != null);
+    if (withLoc.length < ODOMETER_GPS_MIN_POINTS) return;
+    const startKms = day.start_kms;
+    const endKms = day.end_kms;
+    if (startKms == null || endKms == null || typeof startKms !== "number" || typeof endKms !== "number") return;
+    const odometerKm = endKms - startKms;
+    if (odometerKm < 0) return;
+    let gpsKm = 0;
+    for (let i = 0; i < withLoc.length - 1; i++) {
+      const a = withLoc[i];
+      const b = withLoc[i + 1];
+      if (a.lat == null || a.lng == null || b.lat == null || b.lng == null) continue;
+      gpsKm += haversineDistanceKm(a.lat, a.lng, b.lat, b.lng);
+    }
+    if (odometerKm === 0) return;
+    const ratio = gpsKm / odometerKm;
+    if (ratio < ODOMETER_GPS_RATIO_MIN || ratio > ODOMETER_GPS_RATIO_MAX) {
+      results.push({
+        type: "warning",
+        iconKey: "MapPin",
+        day: getLabel(dayIndex),
+        message: `Recorded km (${odometerKm}) may not match route (GPS path ~${Math.round(gpsKm)} km) — verify odometer.`,
+      });
+    }
+  });
+}
+
+/**
+ * Soft warning when many events have no location data (audit evidence).
+ */
+function checkLocationEvidenceWarning(days: ComplianceDayData[], results: ComplianceCheckResult[]) {
+  let total = 0;
+  let withLocation = 0;
+  days.forEach((day) => {
+    const events = day.events ?? [];
+    events.forEach((ev) => {
+      total++;
+      if (ev.lat != null && ev.lng != null) withLocation++;
+    });
+  });
+  if (total < 2) return;
+  const fractionWithout = 1 - withLocation / total;
+  if (fractionWithout > LOCATION_EVIDENCE_WARN_FRACTION) {
+    results.push({
+      type: "warning",
+      iconKey: "MapPin",
+      day: "7-day",
+      message: `Many events have no location data (${withLocation}/${total} with GPS) — consider enabling location for compliance evidence.`,
+    });
+  }
+}
+
 /**
  * Run all compliance checks for the given week and optional previous week.
  * Returns violations and warnings (empty array = all compliant).
@@ -467,10 +609,22 @@ export function runComplianceChecks(
     last24hBreak?: string;
     weekStarting?: string;
     prevWeekStarting?: string;
+    /** Current day index in week (0–6). With slotOffsetWithinToday, 72h rule is retrospective from now. */
+    currentDayIndex?: number;
+    /** Slots (0–48) of today elapsed so 72h window ends at now. */
+    slotOffsetWithinToday?: number;
   }
 ): ComplianceCheckResult[] {
   const results: ComplianceCheckResult[] = [];
-  const { driverType = "solo", prevWeekDays, last24hBreak, weekStarting, prevWeekStarting } = options;
+  const {
+    driverType = "solo",
+    prevWeekDays,
+    last24hBreak,
+    weekStarting,
+    prevWeekStarting,
+    currentDayIndex,
+    slotOffsetWithinToday,
+  } = options;
 
   checkBreakFromDriving(days, results);
 
@@ -486,13 +640,19 @@ export function runComplianceChecks(
 
   if (driverType === "two_up") {
     checkTwoUpRules(extendedDays, results, prevCount);
+    checkRestBreakMovingVehicle(extendedDays, results, { weekStarting, prevWeekStarting, prevCount });
   } else {
     checkSoloRules(extendedDays, results, prevCount, {
       weekStarting,
       prevWeekStarting,
       last24hBreak,
+      currentDayIndex,
+      slotOffsetWithinToday,
     });
   }
+
+  checkOdometerVsGpsPlausibility(extendedDays, results, { weekStarting, prevWeekStarting, prevCount });
+  checkLocationEvidenceWarning(extendedDays, results);
 
   const thisWeekWork = days.reduce((s, d) => s + getHours(d.work_time), 0);
   const prevWeekWork = prevDays.reduce((s, d) => s + getHours(d.work_time), 0);

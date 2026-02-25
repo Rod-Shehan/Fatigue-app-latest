@@ -10,6 +10,8 @@ export type ComplianceCheckPayload = {
   last24hBreak?: string;
   weekStarting?: string;
   prevWeekStarting?: string;
+  currentDayIndex?: number;
+  slotOffsetWithinToday?: number;
 };
 
 export async function POST(req: Request) {
@@ -24,6 +26,8 @@ export async function POST(req: Request) {
       last24hBreak,
       weekStarting,
       prevWeekStarting,
+      currentDayIndex,
+      slotOffsetWithinToday,
     } = body;
     if (!Array.isArray(days)) {
       return NextResponse.json({ error: "days must be an array" }, { status: 400 });
@@ -34,6 +38,8 @@ export async function POST(req: Request) {
       last24hBreak,
       weekStarting,
       prevWeekStarting,
+      currentDayIndex,
+      slotOffsetWithinToday,
     });
     return NextResponse.json({ results });
   } catch (e) {

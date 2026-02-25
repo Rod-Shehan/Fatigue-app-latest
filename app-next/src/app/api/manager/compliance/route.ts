@@ -20,6 +20,10 @@ export type ManagerComplianceItem = {
   driver_name: string;
   week_starting: string;
   results: ComplianceCheckResult[];
+  /** Number of events that have lat/lng (for audit evidence). */
+  eventsWithLocation?: number;
+  /** Total number of events across all days. */
+  totalEvents?: number;
 };
 
 /**
@@ -44,6 +48,12 @@ export async function GET() {
       byDriverWeek.set(`${s.driverName}|${s.weekStarting}`, s);
     }
 
+    const now = Date.now();
+    const today = new Date(now);
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const slotOffsetWithinToday = Math.min(48, Math.max(0, Math.floor((now - todayStart) / (30 * 60 * 1000))));
+
     const items: ManagerComplianceItem[] = [];
     for (const sheet of sheets) {
       const prevWeekStarting = getPreviousWeekSunday(sheet.weekStarting);
@@ -51,12 +61,34 @@ export async function GET() {
       const days = parseDays(sheet.days);
       const prevWeekDays = prevSheet ? parseDays(prevSheet.days) : null;
 
+      const [yw, mw, dw] = sheet.weekStarting.split("-").map(Number);
+      let currentDayIndex: number | undefined;
+      for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(yw, mw - 1, dw + i);
+        const ds = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, "0")}-${String(dayDate.getDate()).padStart(2, "0")}`;
+        if (ds === todayStr) {
+          currentDayIndex = i;
+          break;
+        }
+      }
+
       const results = runComplianceChecks(days, {
         driverType: sheet.driverType ?? "solo",
         prevWeekDays,
         last24hBreak: sheet.last24hBreak ?? undefined,
         weekStarting: sheet.weekStarting,
         prevWeekStarting: prevSheet?.weekStarting ?? undefined,
+        currentDayIndex,
+        slotOffsetWithinToday,
+      });
+
+      let totalEvents = 0;
+      let eventsWithLocation = 0;
+      days.forEach((d) => {
+        (d.events ?? []).forEach((ev) => {
+          totalEvents++;
+          if (ev.lat != null && ev.lng != null) eventsWithLocation++;
+        });
       });
 
       items.push({
@@ -64,6 +96,8 @@ export async function GET() {
         driver_name: sheet.driverName,
         week_starting: sheet.weekStarting,
         results,
+        eventsWithLocation,
+        totalEvents,
       });
     }
 
