@@ -102,15 +102,6 @@ export default function CompliancePanel({
           <p className={`text-xl font-bold font-mono ${ACTIVITY_THEME.rest.statsValue}`}>{totalNonWork}h</p>
         </div>
       </div>
-      <div className={`rounded-lg p-2.5 ${ACTIVITY_THEME.rest.statsCard} border border-emerald-100 dark:border-emerald-800`}>
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-600 dark:text-emerald-400 mb-1.5">Non-Work Time rules</p>
-        <ul className="space-y-0.5 text-[11px] text-slate-600 dark:text-slate-400">
-          <li>• All time not logged as work or break is counted as non-work time.</li>
-          <li>• Starts when no shift is live, but only after the 24 hour break is set, and only before the current date and time.</li>
-          <li>• Retrospective only — never shown or recorded after the current time on any day or shift.</li>
-          <li>• End Shift sets recording to non-work; no separate button needed.</li>
-        </ul>
-      </div>
       {prevWeekDays && prevWeekDays.length > 0 && (
         <p className="text-[10px] text-slate-400 italic">↑ Previous week's sheet linked for 14-day checks</p>
       )}
