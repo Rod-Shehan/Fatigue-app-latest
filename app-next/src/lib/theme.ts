@@ -1,9 +1,13 @@
 /**
  * Activity theme – single source of truth for Work / Break / Non-Work Time / End Shift.
  * Used by LogBar, TimeGrid, EventLogger, and CompliancePanel.
+ *
+ * Terminology: We use "non-work time" (not "rest") for recovery time away from work.
+ * Break = short break during work (e.g. 20 min per 5 hours). Non-work time = any time
+ * not logged as work or break; rules refer to "7-hr non-work" and "24h non-work time".
  */
 
-export type ActivityKey = "work" | "break" | "rest" | "stop";
+export type ActivityKey = "work" | "break" | "non_work" | "stop";
 
 export const ACTIVITY_THEME: Record<
   ActivityKey,
@@ -35,7 +39,7 @@ export const ACTIVITY_THEME: Record<
     statsLabel: "text-amber-500 dark:text-amber-400",
     statsValue: "text-amber-700 dark:text-amber-200",
   },
-  rest: {
+  non_work: {
     hex: "#10b981",
     rgb: [52, 211, 153],
     button: "bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300",
@@ -59,5 +63,5 @@ export const ACTIVITY_THEME: Record<
 export const TIME_GRID_ROWS = [
   { key: "work_time" as const, label: "Work", color: ACTIVITY_THEME.work.hex },
   { key: "breaks" as const, label: "Breaks", color: ACTIVITY_THEME.break.hex },
-  { key: "non_work" as const, label: "Non-Work Time", color: ACTIVITY_THEME.rest.hex },
+  { key: "non_work" as const, label: "Non-Work Time", color: ACTIVITY_THEME.non_work.hex },
 ];

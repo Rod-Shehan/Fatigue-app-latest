@@ -37,29 +37,29 @@ export function getLastStopTime(events: RollingEvent[], beforeTimeMs?: number): 
 }
 
 /**
- * Rest (non-work) hours since the last stop event, as of asOfMs.
+ * Non-work time (hours) since the last stop event, as of asOfMs.
  * Returns null if there has never been a stop (no "last shift").
  */
-export function getRestHoursSinceLastStop(events: RollingEvent[], asOfMs: number): number | null {
+export function getNonWorkHoursSinceLastStop(events: RollingEvent[], asOfMs: number): number | null {
   const lastStop = getLastStopTime(events, asOfMs + 1);
   if (lastStop === null) return null;
   return (asOfMs - lastStop) / (3600 * 1000);
 }
 
-/** Minimum rest hours required between shifts (e.g. WA 7h). */
-const DEFAULT_MIN_REST_HOURS = 7;
+/** Minimum non-work time (hours) required between shifts (e.g. WA 7h). */
+const DEFAULT_MIN_NON_WORK_HOURS = 7;
 
 /**
- * Returns an insufficient-rest message if, as of asOfMs, rest since last stop is below minHours.
- * Returns null if no stop exists or rest is sufficient.
+ * Returns an insufficient non-work-time message if, as of asOfMs, non-work time since last stop is below minHours.
+ * Returns null if no stop exists or non-work time is sufficient.
  */
-export function getInsufficientRestMessage(
+export function getInsufficientNonWorkMessage(
   events: RollingEvent[],
   asOfMs: number,
-  minRestHours: number = DEFAULT_MIN_REST_HOURS
+  minNonWorkHours: number = DEFAULT_MIN_NON_WORK_HOURS
 ): string | null {
-  const restHours = getRestHoursSinceLastStop(events, asOfMs);
-  if (restHours === null) return null;
-  if (restHours >= minRestHours) return null;
-  return `Less than ${minRestHours} hours non-work time since last shift. Starting work may not meet rest requirements.`;
+  const nonWorkHours = getNonWorkHoursSinceLastStop(events, asOfMs);
+  if (nonWorkHours === null) return null;
+  if (nonWorkHours >= minNonWorkHours) return null;
+  return `Less than ${minNonWorkHours} hours non-work time since last shift. Starting work may not meet non-work time requirements.`;
 }

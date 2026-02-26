@@ -239,7 +239,7 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
 }
 
 const SLOTS_17H = 17 * 2;
-const SLOTS_7H_REST = 7 * 2;
+const SLOTS_7H_NON_WORK = 7 * 2;
 
 function checkSoloRules(
   days: ComplianceDayData[],
@@ -298,28 +298,29 @@ function checkSoloRules(
     return ci < 0 ? `prev+${dayIdx + 1}` : DAY_LABELS[ci] ?? `D${dayIdx + 1}`;
   };
 
+  /* 17-hour rule (Solo): two periods of non-work time (each longer than 7h) cannot be separated by more than 17h of work and break combined. */
   for (const segment of segments24) {
     const segmentDays = segment.map((i) => days[i]);
     const nonWork = flatSlots(segmentDays, "non_work");
     const work = flatSlots(segmentDays, "work_time");
     const breaks = flatSlots(segmentDays, "breaks");
     let workBreakRun = 0;
-    let restRun = 0;
+    let nonWorkRun = 0;
     for (let s = 0; s < nonWork.length; s++) {
       const dayIndexInSegment = Math.min(Math.floor(s / SLOTS_PER_DAY), segmentDays.length - 1);
       const segmentDayHasWork = dayHasWork(segmentDays[dayIndexInSegment] ?? {});
       if (!segmentDayHasWork) {
         workBreakRun = 0;
-        restRun = 0;
+        nonWorkRun = 0;
         continue;
       }
       const isWorkBreak = work[s] || breaks[s];
       if (nonWork[s]) {
-        restRun++;
+        nonWorkRun++;
         workBreakRun = 0;
       } else if (isWorkBreak) {
-        if (restRun >= SLOTS_7H_REST) workBreakRun = 0;
-        restRun = 0;
+        if (nonWorkRun >= SLOTS_7H_NON_WORK) workBreakRun = 0;
+        nonWorkRun = 0;
         workBreakRun++;
         if (workBreakRun > SLOTS_17H) {
           const dayIdx = segment[dayIndexInSegment];
@@ -332,12 +333,12 @@ function checkSoloRules(
             type: "violation",
             iconKey: "Clock",
             day: getLabel(dayIdx),
-            message: "More than 17h between 7-hr rest breaks",
+            message: "Two 7-hr+ non-work periods cannot be separated by more than 17h work+break",
           });
           break;
         }
       } else {
-        restRun = 0;
+        nonWorkRun = 0;
       }
     }
   }
@@ -493,7 +494,7 @@ function flattenEventsByTime(days: ComplianceDayData[]): EventWithDay[] {
 }
 
 /**
- * Two-Up: 7h rest must be "not in a moving vehicle". The driver is in the same vehicle (rego unchanged)
+ * Two-Up: 7h non-work time must be "not in a moving vehicle". The driver is in the same vehicle (rego unchanged)
  * between break and the next work. So GPS should not change between break and next work — if it does,
  * the vehicle moved during the break. Warn when break duration >= 20 min and distance to next *work*
  * event is large.
@@ -525,7 +526,7 @@ function checkRestBreakMovingVehicle(
       type: "warning",
       iconKey: "MapPin",
       day: getLabel(flat[i].dayIndex),
-      message: `Break may have been taken in a moving vehicle (${distanceKm.toFixed(1)} km over ${durationMin} min) — 7h rest rule may require stationary rest.`,
+      message: `Break may have been taken in a moving vehicle (${distanceKm.toFixed(1)} km over ${durationMin} min) — 7h non-work rule may require stationary non-work time.`,
     });
   }
 }
@@ -724,7 +725,7 @@ function cloneDaysAndInjectWork(
   });
 }
 
-/** Messages relevant when about to log work (rest, non-work, 17h, 72h, 48h, 14-day limits). */
+/** Messages relevant when about to log work (non-work time, 17h, 72h, 48h, 14-day limits). */
 const WORK_RELEVANT_MESSAGE_PATTERNS = [
   "non-work",
   "7 continuous",
@@ -735,7 +736,6 @@ const WORK_RELEVANT_MESSAGE_PATTERNS = [
   "48hrs",
   "168",
   "14-day",
-  "rest",
 ];
 
 function filterWorkRelevantResults(results: ComplianceCheckResult[]): ComplianceCheckResult[] {
@@ -746,7 +746,7 @@ function filterWorkRelevantResults(results: ComplianceCheckResult[]): Compliance
 
 /**
  * Run compliance as if one more 30-min work segment were logged at "now" on the current day.
- * Returns work-relevant violation/warning messages (rest, non-work, limits).
+ * Returns work-relevant violation/warning messages (non-work time, limits).
  * Use when the user is about to tap "Work" to show prospective issues.
  */
 export function getProspectiveWorkWarnings(

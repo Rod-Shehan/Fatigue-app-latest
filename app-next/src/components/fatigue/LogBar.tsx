@@ -4,7 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Briefcase, Coffee, Moon, Square } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getEventsInTimeOrder, getInsufficientRestMessage } from "@/lib/rolling-events";
+import { getEventsInTimeOrder, getInsufficientNonWorkMessage } from "@/lib/rolling-events";
 
 const WORK_TARGET_MINUTES = 5 * 60;
 const BREAK_TARGET_MINUTES = 20;
@@ -17,13 +17,13 @@ function formatCountdown(mins: number): string {
 const EVENT_ICONS: Record<ActivityKey, React.ComponentType<{ className?: string }>> = {
   work: Briefcase,
   break: Coffee,
-  rest: Moon,
+  non_work: Moon,
   stop: Square,
 };
 const EVENT_LABELS: Record<ActivityKey, string> = {
   work: "Work",
   break: "Break",
-  rest: "Rest",
+  non_work: "Non-Work Time",
   stop: "End Shift",
 };
 
@@ -36,8 +36,8 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MIN_BREAK_TOTAL_MINUTES = 20;
 const MIN_BREAK_BLOCK_MINUTES = 10;
 const BREAK_BLOCKS_REQUIRED = 1;
-/** Minimum non-work hours between shifts (rest rule). */
-const MIN_REST_HOURS_BETWEEN_SHIFTS = 7;
+/** Minimum non-work time (hours) between shifts. */
+const MIN_NON_WORK_HOURS_BETWEEN_SHIFTS = 7;
 const CONFIRM_RESET_MS = 2500;
 
 function getDurationMinutes(start: string, end: string) {
@@ -155,7 +155,7 @@ export default function LogBar({
   onEndShiftRequest?: (dayIndex: number) => void;
   /** Optional icon shown to the left of the "Today" label in the top header row. */
   leadingIcon?: React.ReactNode;
-  /** Prospective compliance messages (rest, non-work, limits) if work were logged now. When set, shown when user taps Work. */
+  /** Prospective compliance messages (non-work time, limits) if work were logged now. When set, shown when user taps Work. */
   workRelevantComplianceMessages?: string[];
   /** When provided and in work/break state, "Assume idle" is shown. Call to mark from now as non-work (forgot to end shift). */
   onAssumeIdle?: () => void;
@@ -249,10 +249,10 @@ export default function LogBar({
   };
 
   /** Warning when starting work with <7h non-work since last shift (rolling time: last stop anywhere). */
-  const getInsufficientRestWarning = () => {
+  const getInsufficientNonWorkWarning = () => {
     if (currentType !== null && currentType !== "stop") return null;
     const rollingEvents = getEventsInTimeOrder(days);
-    return getInsufficientRestMessage(rollingEvents, Date.now(), MIN_REST_HOURS_BETWEEN_SHIFTS);
+    return getInsufficientNonWorkMessage(rollingEvents, Date.now(), MIN_NON_WORK_HOURS_BETWEEN_SHIFTS);
   };
 
   const handleLog = (type: string) => {
@@ -325,10 +325,10 @@ export default function LogBar({
         });
         return;
       }
-      const restMsg = getInsufficientRestWarning();
-      if (restMsg) {
+      const nonWorkMsg = getInsufficientNonWorkWarning();
+      if (nonWorkMsg) {
         setWorkWarning({
-          message: restMsg,
+          message: nonWorkMsg,
           confirmLabel: "Start shift anyway",
           subtext: "Tap Work again within a few seconds to confirm.",
           onConfirm: () => {

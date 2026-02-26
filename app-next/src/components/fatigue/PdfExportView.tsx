@@ -26,7 +26,7 @@ function formatGps(lat: number, lng: number) {
 const EVENT_LABELS: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   work: { label: "Work", icon: Briefcase },
   break: { label: "Break", icon: Coffee },
-  rest: { label: "Rest", icon: Moon },
+  non_work: { label: "Non-Work Time", icon: Moon },
   stop: { label: "End", icon: Square },
 };
 

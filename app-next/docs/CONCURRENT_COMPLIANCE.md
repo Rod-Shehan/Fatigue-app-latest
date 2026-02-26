@@ -38,8 +38,8 @@ Use or adapt one of these in the completion/signature flow when the sheet has vi
 | Rule | Strategy (warn only; do not prevent lodging) |
 |------|---------------------------------------------|
 | **5h work → 20min break** | **Live:** LogBar shows work countdown (5h) and break countdown (20m). **Imminent warning:** When work time approaches 5h (e.g. &lt;30 min left), show: "Take a break within X minutes to avoid a violation." **At log:** Do **not** block logging work; driver may log. Optionally show an inline warning that the break rule was not met and may be reported. |
-| **7h continuous rest (solo)** | **Prospective:** (Future) Warn when longest non-work block is &lt;7h. **At completion:** Compliance panel shows issue; do **not** block complete. |
-| **17h between 7h rests (solo)** | **Prospective:** (Future) Warn when approaching 17h. **Retrospective:** Compliance panel reports. Do not block completion. |
+| **7h continuous non-work time (solo)** | **Prospective:** (Future) Warn when longest non-work block is &lt;7h. **At completion:** Compliance panel shows issue; do **not** block complete. |
+| **17h rule (solo): two 7h+ non-work periods cannot be separated by more than 17h work+break** | **Prospective:** (Future) Warn when approaching 17h. **Retrospective:** Compliance panel reports. Do not block completion. |
 | **72h rolling (solo)** | **Prospective:** (Future) Warn when 72h window is short. **Retrospective:** Compliance panel reports. Do not block completion. |
 | **24h break (solo)** | **At completion:** Do **not** block. Recommend setting last 24h break when &gt;7 days or not set; show warning that issues may be reported to the Fatigue System Manager. **Carry-over:** If previous week's break is &lt;7 days, auto-fill to avoid re-entry. |
 | **14-day 168h** | **Prospective:** (Future) Warn when approaching 168h. **Retrospective:** Compliance panel reports. Do not block completion. |

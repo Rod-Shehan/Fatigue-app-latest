@@ -9,7 +9,7 @@ This document describes the **target stack** and how to complete the conversion.
 | Framework | **Next.js 14** (App Router) |
 | Language  | **TypeScript** |
 | Database  | **Prisma** + **SQLite** (dev) / **PostgreSQL** (prod) |
-| Auth      | **Auth.js** (NextAuth.js v5) |
+| Auth      | **NextAuth.js** (v4; Credentials provider) |
 | UI        | **React** + **Tailwind** + existing Radix/shadcn-style components |
 | Data      | **TanStack Query** (unchanged) + new API client calling `/api/*` |
 

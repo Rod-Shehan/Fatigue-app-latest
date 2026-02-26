@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,12 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus, AlertTriangle, Coffee, Moon, Clock, TrendingUp, ExternalLink, MapPin, Map } from "lucide-react";
-import { getThisWeekSunday } from "@/lib/weeks";
-
-const ManagerEventMap = dynamic(
-  () => import("@/components/ManagerEventMap").then((m) => m.ManagerEventMap),
-  { ssr: false }
-);
 
 const COMPLIANCE_ICON_MAP = {
   Coffee,
@@ -99,14 +92,6 @@ export function ManagerView() {
     second_driver: "",
   });
 
-  const [mapWeekStarting, setMapWeekStarting] = useState<string>("");
-  const [mapDriverName, setMapDriverName] = useState<string>("");
-  const [mapEventTypes, setMapEventTypes] = useState({
-    work: true,
-    break: true,
-    stop: true,
-  });
-
   const { data: sheets = [], isLoading: sheetsLoading } = useQuery({
     queryKey: ["sheets"],
     queryFn: () => api.sheets.list(),
@@ -125,32 +110,6 @@ export function ManagerView() {
   });
   const oversightItems: ManagerComplianceItem[] = complianceOversight?.items ?? [];
   const itemsWithIssues = oversightItems.filter((i) => i.results.length > 0);
-
-  const { data: mapEventsData, isLoading: mapEventsLoading } = useQuery({
-    queryKey: ["manager", "map-events", mapWeekStarting, mapDriverName],
-    queryFn: () =>
-      api.manager.mapEvents({
-        ...(mapWeekStarting && { weekStarting: mapWeekStarting }),
-        ...(mapDriverName && { driverName: mapDriverName }),
-      }),
-  });
-  const mapEvents = mapEventsData?.events ?? [];
-
-  const mapWeeks = useMemo(() => {
-    const weeks = [...new Set(sheets.map((s) => s.week_starting).filter(Boolean))];
-    return weeks.sort().reverse();
-  }, [sheets]);
-  const mapDrivers = useMemo(() => {
-    const names = [...new Set(sheets.map((s) => s.driver_name).filter(Boolean))];
-    return names.sort((a, b) => a.localeCompare(b));
-  }, [sheets]);
-
-  const mapEventTypesSet = useMemo(() => {
-    const checked = (["work", "break", "stop"] as const).filter(
-      (t) => mapEventTypes[t]
-    );
-    return new Set(checked);
-  }, [mapEventTypes]);
 
   useEffect(() => {
     if (!selectedSheet || selectedSheet.id !== selectedSheetId) return;
@@ -237,6 +196,11 @@ export function ManagerView() {
               <Users className="w-4 h-4" /> Manage Drivers
             </Button>
           </Link>
+          <Link href="/manager/map">
+            <Button variant="outline" className="gap-2 text-slate-600 dark:text-slate-300">
+              <Map className="w-4 h-4" /> Event map
+            </Button>
+          </Link>
         </div>
 
         <div className="space-y-6">
@@ -300,7 +264,7 @@ export function ManagerView() {
                           className="h-9 font-mono max-w-xs"
                         />
                         <p className="text-xs text-slate-400">
-                          Date of last 24h rest; resets 17h and 72h rules. Leave
+                          Date of last 24h non-work time; resets 17h and 72h rules. Leave
                           empty if not set.
                         </p>
                       </div>
@@ -564,99 +528,6 @@ export function ManagerView() {
                 })}
               </div>
             )}
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Map className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Event map
-              </h2>
-            </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Driver time inputs with location. Filter by week and driver, then click a marker to see details.
-            </p>
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                    Week
-                  </Label>
-                  <Select
-                    value={mapWeekStarting || "all"}
-                    onValueChange={(v) => setMapWeekStarting(v === "all" ? "" : v)}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="All weeks" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All weeks</SelectItem>
-                      {mapWeeks.map((w) => (
-                        <SelectItem key={w} value={w}>
-                          {formatWeekLabel(w)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                    Driver
-                  </Label>
-                  <Select
-                    value={mapDriverName || "all"}
-                    onValueChange={(v) => setMapDriverName(v === "all" ? "" : v)}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="All drivers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All drivers</SelectItem>
-                      {mapDrivers.map((name) => (
-                        <SelectItem key={name} value={name}>
-                          {name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
-                    Event types
-                  </Label>
-                  <div className="flex gap-3">
-                    {(["work", "break", "stop"] as const).map((type) => (
-                      <label
-                        key={type}
-                        className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={mapEventTypes[type]}
-                          onChange={(e) =>
-                            setMapEventTypes((t) => ({ ...t, [type]: e.target.checked }))
-                          }
-                          className="rounded border-slate-300 dark:border-slate-600"
-                        />
-                        <span className="capitalize">{type}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              {mapEventsLoading ? (
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 min-h-[320px]">
-                  <Loader2 className="w-5 h-5 text-slate-500 animate-spin shrink-0" />
-                  <span className="text-sm text-slate-600 dark:text-slate-300">Loading map events…</span>
-                </div>
-              ) : (
-                <ManagerEventMap
-                  events={mapEvents}
-                  eventTypesFilter={mapEventTypesSet}
-                  className="w-full"
-                />
-              )}
-            </div>
           </div>
         </div>
       </div>

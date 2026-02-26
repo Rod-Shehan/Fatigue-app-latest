@@ -8,7 +8,7 @@ import { getSheetDayDateString, getTodayLocalDateString } from "@/lib/weeks";
 const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   work: { label: "Work", icon: Briefcase },
   break: { label: "Break", icon: Coffee },
-  rest: { label: "Rest", icon: Moon },
+  non_work: { label: "Non-Work Time", icon: Moon },
   stop: { label: "End Shift", icon: Square },
 };
 

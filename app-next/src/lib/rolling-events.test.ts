@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   getEventsInTimeOrder,
   getLastStopTime,
-  getRestHoursSinceLastStop,
-  getInsufficientRestMessage,
+  getNonWorkHoursSinceLastStop,
+  getInsufficientNonWorkMessage,
   type RollingEvent,
 } from "./rolling-events";
 
@@ -95,21 +95,21 @@ describe("rolling-events", () => {
     });
   });
 
-  describe("getRestHoursSinceLastStop", () => {
+  describe("getNonWorkHoursSinceLastStop", () => {
     it("returns null when no stop", () => {
       const events: RollingEvent[] = [
         { time: "2025-02-17T08:00:00.000Z", type: "work", dayIndex: 0 },
       ];
-      expect(getRestHoursSinceLastStop(events, ts("2025-02-17T20:00:00.000Z"))).toBeNull();
+      expect(getNonWorkHoursSinceLastStop(events, ts("2025-02-17T20:00:00.000Z"))).toBeNull();
     });
 
-    it("returns rest hours since last stop as of asOfMs", () => {
+    it("returns non-work hours since last stop as of asOfMs", () => {
       const events: RollingEvent[] = [
         { time: "2025-02-17T08:00:00.000Z", type: "work", dayIndex: 0 },
         { time: "2025-02-17T18:00:00.000Z", type: "stop", dayIndex: 0 },
       ];
       const asOf = ts("2025-02-18T01:00:00.000Z"); // 7h after stop
-      expect(getRestHoursSinceLastStop(events, asOf)).toBe(7);
+      expect(getNonWorkHoursSinceLastStop(events, asOf)).toBe(7);
     });
 
     it("returns 5 when stop was 5h ago (insufficient for 7h rule)", () => {
@@ -117,43 +117,43 @@ describe("rolling-events", () => {
         { time: "2025-02-17T18:00:00.000Z", type: "stop", dayIndex: 0 },
       ];
       const asOf = ts("2025-02-17T23:00:00.000Z"); // 5h later
-      expect(getRestHoursSinceLastStop(events, asOf)).toBe(5);
+      expect(getNonWorkHoursSinceLastStop(events, asOf)).toBe(5);
     });
   });
 
-  describe("getInsufficientRestMessage", () => {
+  describe("getInsufficientNonWorkMessage", () => {
     it("returns null when no stop (no last shift)", () => {
       const events: RollingEvent[] = [
         { time: "2025-02-17T08:00:00.000Z", type: "work", dayIndex: 0 },
       ];
-      expect(getInsufficientRestMessage(events, ts("2025-02-17T20:00:00.000Z"))).toBeNull();
+      expect(getInsufficientNonWorkMessage(events, ts("2025-02-17T20:00:00.000Z"))).toBeNull();
     });
 
-    it("returns null when rest >= 7h", () => {
+    it("returns null when non-work time >= 7h", () => {
       const events: RollingEvent[] = [
         { time: "2025-02-17T18:00:00.000Z", type: "stop", dayIndex: 0 },
       ];
       const asOf = ts("2025-02-18T02:00:00.000Z"); // 8h later
-      expect(getInsufficientRestMessage(events, asOf)).toBeNull();
+      expect(getInsufficientNonWorkMessage(events, asOf)).toBeNull();
     });
 
-    it("returns message when rest < 7h", () => {
+    it("returns message when non-work time < 7h", () => {
       const events: RollingEvent[] = [
         { time: "2025-02-17T18:00:00.000Z", type: "stop", dayIndex: 0 },
       ];
       const asOf = ts("2025-02-17T23:00:00.000Z"); // 5h later
-      const msg = getInsufficientRestMessage(events, asOf);
+      const msg = getInsufficientNonWorkMessage(events, asOf);
       expect(msg).toContain("Less than 7 hours");
-      expect(msg).toContain("rest requirements");
+      expect(msg).toContain("non-work time requirements");
     });
 
-    it("uses custom minRestHours when provided", () => {
+    it("uses custom minNonWorkHours when provided", () => {
       const events: RollingEvent[] = [
         { time: "2025-02-17T18:00:00.000Z", type: "stop", dayIndex: 0 },
       ];
       const asOf = ts("2025-02-18T00:00:00.000Z"); // 6h later
-      expect(getInsufficientRestMessage(events, asOf, 5)).toBeNull();
-      expect(getInsufficientRestMessage(events, asOf, 7)).not.toBeNull();
+      expect(getInsufficientNonWorkMessage(events, asOf, 5)).toBeNull();
+      expect(getInsufficientNonWorkMessage(events, asOf, 7)).not.toBeNull();
     });
   });
 });

@@ -2,6 +2,11 @@
  * Firebase client SDK – use in browser / client components only.
  * Server-side: use firebase-admin in API routes if needed.
  *
+ * NOTE: This module is currently unused. App auth is NextAuth (Credentials) only.
+ * Keep for optional future use (Firebase Auth, Firestore). For Firebase Hosting
+ * deploy you only need firebase-tools; this file and the "firebase" npm package
+ * are optional unless you add Firebase Auth/Firestore in the client.
+ *
  * Set env vars in .env.local (see README):
  *   NEXT_PUBLIC_FIREBASE_API_KEY=
  *   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=

@@ -10,7 +10,7 @@ import { getTodayLocalDateString, getSheetDayDateString } from "@/lib/weeks";
 const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   work: { label: "Work", icon: Briefcase },
   break: { label: "Break", icon: Coffee },
-  rest: { label: "Rest", icon: Moon },
+  non_work: { label: "Non-Work Time", icon: Moon },
   stop: { label: "End Shift", icon: Square },
 };
 
@@ -39,7 +39,7 @@ const MINUTES_PER_SLOT = 30;
 /**
  * Derive 30-min slot arrays from events for one day (00:00–24:00 local).
  * Work and break come from logged segments; all other time (including before
- * first event, after last event, rest, and end-shift) counts as non-work.
+ * first event, after last event, non-work time, and end-shift) counts as non-work.
  * Rule: non-work is retrospective only — never shown after the present time on the current day.
  * Rule: work is continuous across midnight when there is no End Shift — previous day's
  * work/break rolls into the next day from 00:00 until the first event (carryOver).

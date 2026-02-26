@@ -96,10 +96,10 @@ export default function CompliancePanel({
           <p className={`text-[10px] uppercase tracking-wider font-semibold ${ACTIVITY_THEME.break.statsLabel}`}>Breaks</p>
           <p className={`text-xl font-bold font-mono ${ACTIVITY_THEME.break.statsValue}`}>{totalBreaks}h</p>
         </div>
-        <div className={`rounded-lg p-3 text-center ${ACTIVITY_THEME.rest.statsCard}`}>
-          <p className={`text-[10px] uppercase tracking-wider font-semibold ${ACTIVITY_THEME.rest.statsLabel}`}>Non-Work Time</p>
+        <div className={`rounded-lg p-3 text-center ${ACTIVITY_THEME.non_work.statsCard}`}>
+          <p className={`text-[10px] uppercase tracking-wider font-semibold ${ACTIVITY_THEME.non_work.statsLabel}`}>Non-Work Time</p>
           <p className="text-[9px] text-slate-400 mt-0.5">all time not work or break</p>
-          <p className={`text-xl font-bold font-mono ${ACTIVITY_THEME.rest.statsValue}`}>{totalNonWork}h</p>
+          <p className={`text-xl font-bold font-mono ${ACTIVITY_THEME.non_work.statsValue}`}>{totalNonWork}h</p>
         </div>
       </div>
       {prevWeekDays && prevWeekDays.length > 0 && (
@@ -153,6 +153,10 @@ export default function CompliancePanel({
         )}
       </AnimatePresence>
       <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">
+          <strong className="text-slate-600 dark:text-slate-300">Non-work time</strong> = recovery between shifts.{" "}
+          <strong className="text-slate-600 dark:text-slate-300">Break</strong> = short break during work (e.g. 20 min).
+        </p>
         <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2">
           WA OSH Reg 3.132 — {isTwoUp ? "Two-Up" : "Solo"} Rules
         </p>
@@ -168,7 +172,7 @@ export default function CompliancePanel({
           <ul className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
             <li>• 20 min break for ea 5 hours work time - 10 min minimum x 2</li>
             <li>• ≥7 continuous hrs non-work time required</li>
-            <li>• Max 17 hrs elapsed time between 7-hr rest breaks (24h non-work resets)</li>
+            <li>• Two periods of non-work time (each longer than 7h) cannot be separated by more than 17h of work and break combined (24h non-work resets)</li>
             <li>• ≥27 hrs non-work in any rolling 72 hrs (incl. 3× ≥7hr blocks; 24h non-work resets)</li>
             <li>• Max 168 hrs work in any 14-day period (rolling; resets after ≥48h continuous non-work)</li>
           </ul>
