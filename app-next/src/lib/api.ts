@@ -44,7 +44,15 @@ export type DayData = {
   work_time?: boolean[];
   breaks?: boolean[];
   non_work?: boolean[];
-  events?: Array<{ time: string; type: string; lat?: number; lng?: number; accuracy?: number }>;
+  events?: Array<{
+    time: string;
+    type: string;
+    lat?: number;
+    lng?: number;
+    accuracy?: number;
+    /** When two-up: which named driver was driving for this work segment. */
+    driver?: "primary" | "second";
+  }>;
   /** When set (ISO string), work/break is capped at this time on that day; from then to "now" shows as non-work ("forgot to end shift" / assume idle). */
   assume_idle_from?: string;
 };

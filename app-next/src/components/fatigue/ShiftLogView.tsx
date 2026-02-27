@@ -29,7 +29,9 @@ function getElapsedSeconds(isoString: string) {
   return Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
 }
 
-type DayData = { events?: { time: string; type: string; lat?: number; lng?: number }[] };
+type DayData = {
+  events?: { time: string; type: string; lat?: number; lng?: number; driver?: "primary" | "second" }[];
+};
 
 type TableRow = {
   dayIndex: number;

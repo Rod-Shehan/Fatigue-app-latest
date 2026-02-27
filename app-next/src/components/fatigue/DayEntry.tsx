@@ -26,7 +26,7 @@ type DayData = {
   work_time?: boolean[];
   breaks?: boolean[];
   non_work?: boolean[];
-  events?: { time: string; type: string }[];
+  events?: { time: string; type: string; driver?: "primary" | "second" }[];
   date?: string;
 };
 

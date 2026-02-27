@@ -232,7 +232,16 @@ export default function EventLogger({
   onUpdate,
   readOnly = false,
 }: {
-  dayData: { events?: Array<{ time: string; type: string; lat?: number; lng?: number; accuracy?: number }> };
+  dayData: {
+    events?: Array<{
+      time: string;
+      type: string;
+      lat?: number;
+      lng?: number;
+      accuracy?: number;
+      driver?: "primary" | "second";
+    }>;
+  };
   dateStr: string;
   onUpdate: (d: unknown) => void;
   readOnly?: boolean;

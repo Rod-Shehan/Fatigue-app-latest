@@ -9,7 +9,7 @@ export type RollingEvent = {
   dayIndex: number;
 };
 
-type DayWithEvents = { events?: { time: string; type: string }[] };
+type DayWithEvents = { events?: { time: string; type: string; driver?: "primary" | "second" }[] };
 
 /**
  * Flatten all events from all days and sort by time (ascending).

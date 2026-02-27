@@ -372,12 +372,20 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     setIsDirty(true);
   }, [currentDayIndex]);
 
-  const handleLogEvent = useCallback((dayIndex: number, type: string) => {
+  const handleLogEvent = useCallback(
+    (dayIndex: number, type: string, driver?: "primary" | "second") => {
     setSheetData((prev) => {
       const newDays = [...prev.days];
       const day = newDays[dayIndex];
       const events = day.events || [];
-      const newEvent = { time: new Date().toISOString(), type };
+        const baseEvent: { time: string; type: string; driver?: "primary" | "second" } = {
+          time: new Date().toISOString(),
+          type,
+        };
+        const newEvent =
+          type === "work" && prev.driver_type === "two_up"
+            ? { ...baseEvent, driver: driver ?? "primary" }
+            : baseEvent;
       const newEvents = [...events, newEvent];
       newDays[dayIndex] = { ...day, events: newEvents };
       const withGrids = deriveDaysWithRollover(newDays, prev.week_starting);
@@ -399,7 +407,8 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
         setIsDirty(true);
       })
       .catch(() => {});
-  }, []);
+  },
+  []);
 
   const handleEndShiftRequest = useCallback(async (dayIndex: number) => {
     const days = sheetDataRef.current.days;
@@ -579,6 +588,9 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
             onAssumeIdle={handleAssumeIdle}
             onStartShiftBlocked={() => currentDayCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
             currentDayDisplay={getDayWithCarriedOverCardInfo(sheetData.days, currentDayIndex, sheetData.week_starting)}
+            driverType={sheetData.driver_type}
+            primaryDriverName={sheetData.driver_name}
+            secondDriverName={sheetData.second_driver}
           />
           {forgottenActionReminder && (
             <div

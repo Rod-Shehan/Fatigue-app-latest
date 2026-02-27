@@ -150,7 +150,8 @@ export default function LogBar({
   days: DayData[];
   currentDayIndex: number;
   weekStarting: string;
-  onLogEvent: (dayIndex: number, type: string) => void;
+  /** Log a new event. When driver is provided and driverType is two_up, the event belongs to that driver. */
+  onLogEvent: (dayIndex: number, type: string, driver?: "primary" | "second") => void;
   /** When provided, End Shift (second tap) calls this instead of onLogEvent so the parent can show end km input. */
   onEndShiftRequest?: (dayIndex: number) => void;
   /** Optional icon shown to the left of the "Today" label in the top header row. */
@@ -163,8 +164,15 @@ export default function LogBar({
   onStartShiftBlocked?: () => void;
   /** When provided, used for Start shift gate (rego/destination/start KM) so carried-over values count. */
   currentDayDisplay?: DayData;
+  /** Solo or two_up — controls whether driver toggle is shown. */
+  driverType?: string;
+  /** Two-up primary driver name (sheet driver_name). */
+  primaryDriverName?: string;
+  /** Two-up second driver name (sheet second_driver). */
+  secondDriverName?: string;
 }) {
   const [pendingType, setPendingType] = useState<string | null>(null);
+  const [activeDriver, setActiveDriver] = useState<"primary" | "second">("primary");
   const [workWarning, setWorkWarning] = useState<{ message: string; confirmLabel: string; onConfirm: () => void; onCancel?: () => void; subtext?: string } | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [, setTick] = useState(0);
@@ -293,7 +301,9 @@ export default function LogBar({
             onConfirm: () => {
               setWorkWarning(null);
               clearPending();
-              onLogEvent(currentDayIndex, type);
+              const driverForEvent: "primary" | "second" | undefined =
+                driverType === "two_up" ? activeDriver : undefined;
+              onLogEvent(currentDayIndex, type, driverForEvent);
             },
             onCancel: clearPending,
           });
@@ -305,7 +315,9 @@ export default function LogBar({
         onEndShiftRequest(currentDayIndex);
         return;
       }
-      onLogEvent(currentDayIndex, type);
+      const driverForEvent: "primary" | "second" | undefined =
+        driverType === "two_up" && type === "work" ? activeDriver : undefined;
+      onLogEvent(currentDayIndex, type, driverForEvent);
       return;
     }
 
@@ -377,6 +389,33 @@ export default function LogBar({
           <span className="hidden sm:inline">{currentDayLabel}</span>
           <span className="sm:hidden">{currentDayLabelShort}</span>
         </span>
+        {driverType === "two_up" && (
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 ml-2">
+            <span className="uppercase tracking-wider font-semibold">Driver</span>
+            <button
+              type="button"
+              className={`px-1.5 py-0.5 rounded-full border text-[11px] font-medium ${
+                activeDriver === "primary"
+                  ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
+                  : "bg-transparent text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600"
+              }`}
+              onClick={() => setActiveDriver("primary")}
+            >
+              {primaryDriverName || "Driver 1"}
+            </button>
+            <button
+              type="button"
+              className={`px-1.5 py-0.5 rounded-full border text-[11px] font-medium ${
+                activeDriver === "second"
+                  ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
+                  : "bg-transparent text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600"
+              }`}
+              onClick={() => setActiveDriver("second")}
+            >
+              {secondDriverName || "Driver 2"}
+            </button>
+          </span>
+        )}
         {currentType && (
           <span className="text-slate-500 dark:text-slate-400 shrink-0">
             <span className="hidden sm:inline">— current activity: </span>
