@@ -146,6 +146,9 @@ export default function LogBar({
   onAssumeIdle,
   onStartShiftBlocked,
   currentDayDisplay,
+  driverType,
+  primaryDriverName,
+  secondDriverName,
 }: {
   days: DayData[];
   currentDayIndex: number;

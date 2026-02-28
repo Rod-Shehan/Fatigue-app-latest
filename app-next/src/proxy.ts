@@ -11,7 +11,7 @@ function addSecurityHeaders(res: NextResponse): NextResponse {
   return res;
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   // Allow NextAuth and static assets
@@ -66,3 +66,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|gif|webp|svg)$).*)",
   ],
 };
+

@@ -120,15 +120,15 @@ export default function SheetHeader({
             </Label>
             {activeDrivers.length > 0 ? (
               <Select
-                value={sheetData.second_driver ?? ""}
-                onValueChange={(val) => handleChange("second_driver", val)}
+                value={sheetData.second_driver === "" || sheetData.second_driver == null ? "__none__" : sheetData.second_driver}
+                onValueChange={(val) => handleChange("second_driver", val === "__none__" ? "" : val)}
                 disabled={readOnly}
               >
                 <SelectTrigger className="h-9 border-amber-300">
                   <SelectValue placeholder="Required for Two-Up" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— None —</SelectItem>
+                  <SelectItem value="__none__">— None —</SelectItem>
                   {activeDrivers.map((d) => (
                     <SelectItem key={d.id} value={d.name}>
                       {d.name}
