@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { type FatigueSheet } from "@/lib/api";
 import { listSheetsOfflineFirst } from "@/lib/offline-api";
+import { parseLocalDate } from "@/lib/weeks";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/PageHeader";
 import { format } from "date-fns";
@@ -106,7 +107,7 @@ export function SheetsList() {
                     <div className="flex items-center gap-3 mt-0.5">
                       {sheet.week_starting && (
                         <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
-                          Week of {format(new Date(sheet.week_starting), "dd MMM yyyy")}
+                          Week of {format(parseLocalDate(sheet.week_starting), "dd MMM yyyy")}
                         </span>
                       )}
                       {sheet.destination && (

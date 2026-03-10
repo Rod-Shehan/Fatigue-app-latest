@@ -5,6 +5,7 @@ import { Briefcase, Coffee, Moon, Square } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getEventsInTimeOrder, getInsufficientNonWorkMessage } from "@/lib/rolling-events";
+import { parseLocalDate } from "@/lib/weeks";
 
 const WORK_TARGET_MINUTES = 5 * 60;
 const BREAK_TARGET_MINUTES = 20;
@@ -210,13 +211,13 @@ export default function LogBar({
 
   const currentDayLabel = (() => {
     if (!weekStarting) return DAY_NAMES[currentDayIndex];
-    const d = new Date(weekStarting);
+    const d = parseLocalDate(weekStarting);
     d.setDate(d.getDate() + currentDayIndex);
     return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
   })();
   const currentDayLabelShort = (() => {
     if (!weekStarting) return DAY_NAMES[currentDayIndex];
-    const d = new Date(weekStarting);
+    const d = parseLocalDate(weekStarting);
     d.setDate(d.getDate() + currentDayIndex);
     return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
   })();

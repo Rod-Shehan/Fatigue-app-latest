@@ -30,7 +30,7 @@ import CompliancePanel from "@/components/fatigue/CompliancePanel";
 import SignatureDialog from "@/components/fatigue/SignatureDialog";
 import LogBar from "@/components/fatigue/LogBar";
 import { deriveDaysWithRollover, applyLast24hBreakNonWorkRule } from "@/components/fatigue/EventLogger";
-import { getSheetDayDateString, getTodayLocalDateString } from "@/lib/weeks";
+import { getSheetDayDateString, getTodayLocalDateString, getPreviousWeekSunday } from "@/lib/weeks";
 import { getProspectiveWorkWarnings } from "@/lib/compliance";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
@@ -192,6 +192,14 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     [sheetData.days, currentDayIndex, now]
   );
 
+  // Re-derive time grids every minute so non-work accumulates in real-time on the current day
+  useEffect(() => {
+    setSheetData((prev) => {
+      const reDerived = deriveDaysWithRollover(prev.days, prev.week_starting);
+      return { ...prev, days: applyLast24hBreakNonWorkRule(reDerived, prev.week_starting, prev.last_24h_break || undefined) };
+    });
+  }, [now]);
+
   const { data: sheet, isLoading } = useQuery({
     queryKey: ["sheet", sheetId],
     queryFn: () => getSheetOfflineFirst(sheetId),
@@ -234,10 +242,7 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
 
   const prevWeekSheet = useMemo(() => {
     if (!sheetData.driver_name || !sheetData.week_starting) return null;
-    const currentStart = new Date(sheetData.week_starting);
-    const expectedPrevStart = new Date(currentStart);
-    expectedPrevStart.setDate(expectedPrevStart.getDate() - 7);
-    const prevDateStr = expectedPrevStart.toISOString().split("T")[0];
+    const prevDateStr = getPreviousWeekSunday(sheetData.week_starting);
     return (
       allSheets.find(
         (s) =>

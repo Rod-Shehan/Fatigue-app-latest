@@ -14,7 +14,7 @@ import { Truck, MapPin } from "lucide-react";
 import TimeGrid from "./TimeGrid";
 import { motion } from "framer-motion";
 import type { Rego } from "@/lib/api";
-import { getSheetDayDateString, getTodayLocalDateString } from "@/lib/weeks";
+import { getSheetDayDateString, getTodayLocalDateString, parseLocalDate } from "@/lib/weeks";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -51,7 +51,7 @@ export default function DayEntry({
 
   const getDateStr = () => {
     if (!weekStart) return "";
-    const d = new Date(weekStart);
+    const d = parseLocalDate(weekStart);
     d.setDate(d.getDate() + dayIndex);
     return d.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" });
   };

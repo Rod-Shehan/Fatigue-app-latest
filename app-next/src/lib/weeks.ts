@@ -45,3 +45,12 @@ export function getSheetDayDateString(weekStarting: string, dayIndex: number): s
   date.setDate(date.getDate() + dayIndex);
   return formatDateLocal(date);
 }
+
+/**
+ * Parse YYYY-MM-DD as local midnight. Use this instead of new Date(dateStr), which
+ * parses date-only as UTC and can shift the calendar day across the 9–10 March boundary.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
