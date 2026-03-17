@@ -139,6 +139,19 @@ export async function POST(req: Request) {
         createdById: access.userId,
       },
     });
+
+    await prisma.auditEvent.create({
+      data: {
+        sheetId: sheet.id,
+        actorId: access.userId,
+        action: "create_sheet",
+        payload: {
+          week_starting: sheet.weekStarting,
+          driver_name: sheet.driverName,
+          driver_type: sheet.driverType,
+        },
+      },
+    });
     return NextResponse.json(sheetToJson(sheet));
   } catch (e) {
     console.error("Sheet create error:", e);

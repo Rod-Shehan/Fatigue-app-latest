@@ -90,6 +90,14 @@ export async function PATCH(
       signed_at,
     } = body;
 
+    // Lock after completion/signature: once completed, prevent edits (except manager "amendments" in a future flow).
+    if (sheet.status === "completed") {
+      return NextResponse.json(
+        { error: "This sheet is completed and locked. Create an amendment to make changes." },
+        { status: 409 }
+      );
+    }
+
     if (week_starting !== undefined && isNextWeekOrLater(week_starting)) {
       const current = await prisma.fatigueSheet.findUnique({ where: { id } });
       if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -131,10 +139,32 @@ export async function PATCH(
     if (status !== undefined) data.status = status;
     if (signature !== undefined) data.signature = signature;
     if (signed_at !== undefined) data.signedAt = signed_at ? new Date(signed_at) : null;
+
+    const changeKeys = Object.keys(data);
     const updated = await prisma.fatigueSheet.update({
       where: { id },
       data: data as Parameters<typeof prisma.fatigueSheet.update>[0]["data"],
     });
+
+    // Append-only audit entry.
+    await prisma.auditEvent.create({
+      data: {
+        sheetId: id,
+        actorId: access.userId,
+        action:
+          status === "completed" || signature !== undefined || signed_at !== undefined
+            ? "complete_sheet"
+            : "update_sheet",
+        payload: {
+          changed_fields: changeKeys,
+          status_before: sheet.status,
+          status_after: updated.status,
+          had_signature_before: !!sheet.signature,
+          has_signature_after: !!updated.signature,
+        },
+      },
+    });
+
     return NextResponse.json(sheetToJson(updated));
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });

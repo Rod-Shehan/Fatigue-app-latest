@@ -202,6 +202,18 @@ export async function GET(
       signed_at: row.signedAt?.toISOString() ?? null,
     };
 
+    const audit = await prisma.auditEvent.findMany({
+      where: { sheetId: id },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: {
+        createdAt: true,
+        action: true,
+        payload: true,
+        actor: { select: { email: true, name: true } },
+      },
+    });
+
     const { jsPDF } = await import("jspdf");
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -321,6 +333,47 @@ export async function GET(
 
       y += tilePadding + 4;
     });
+
+    // Audit trail appendix (snapshot of edit history)
+    if (audit.length > 0) {
+      doc.addPage();
+      let ay = 18;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(30, 30, 30);
+      doc.text("AUDIT TRAIL (Appendix)", margin, ay);
+      ay += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
+      doc.text(
+        "Append-only log of sheet changes captured by the system. Times shown in Australia/Perth.",
+        margin,
+        ay
+      );
+      ay += 6;
+
+      doc.setTextColor(30, 30, 30);
+      const maxLines = 200;
+      const rows = audit.slice(Math.max(0, audit.length - maxLines));
+      for (const e of rows) {
+        const who = e.actor?.name || e.actor?.email || "unknown";
+        const when = new Date(e.createdAt).toLocaleString("en-AU", { timeZone: "Australia/Perth" });
+        const action = e.action;
+        const changed =
+          e.payload && typeof e.payload === "object" && "changed_fields" in (e.payload as any)
+            ? (e.payload as any).changed_fields
+            : undefined;
+        const line = `${when} — ${action}${who ? ` — ${who}` : ""}${Array.isArray(changed) ? ` — ${changed.join(", ")}` : ""}`;
+        const wrapped = doc.splitTextToSize(line, colW);
+        if (ay + wrapped.length * 4 > 280) {
+          doc.addPage();
+          ay = 16;
+        }
+        doc.text(wrapped, margin, ay);
+        ay += wrapped.length * 4 + 1;
+      }
+    }
 
     y += 4;
     if (sheet.signature) {
