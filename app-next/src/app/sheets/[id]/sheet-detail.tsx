@@ -103,6 +103,8 @@ const WORK_FORGOT_END_SHIFT_MIN = 12 * 60;
 const BREAK_COMPLETE_MIN = 20;
 const BREAK_LONG_MIN = 60;
 
+const AUTO_SAVE_DEBOUNCE_MS = 5000;
+
 function getForgottenActionReminder(
   days: DayData[],
   currentDayIndex: number
@@ -166,6 +168,10 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayCardsRef = useRef<HTMLDivElement>(null);
   const currentDayCardRef = useRef<HTMLDivElement | null>(null);
+  const isDirtyRef = useRef(isDirty);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -327,25 +333,51 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
     },
   });
 
+  const buildSavePayload = useCallback((): Partial<FatigueSheet> => {
+    const d = sheetDataRef.current;
+    return {
+      driver_name: d.driver_name,
+      second_driver: d.second_driver,
+      driver_type: d.driver_type,
+      destination: d.destination,
+      last_24h_break: d.last_24h_break || undefined,
+      week_starting: d.week_starting,
+      days: d.days,
+      status: d.status,
+    };
+  }, []);
+
   useEffect(() => {
     if (!isDirty || !sheetData.driver_name) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
-      saveMutation.mutate({
-        driver_name: sheetData.driver_name,
-        second_driver: sheetData.second_driver,
-        driver_type: sheetData.driver_type,
-        destination: sheetData.destination,
-        last_24h_break: sheetData.last_24h_break || undefined,
-        week_starting: sheetData.week_starting,
-        days: sheetData.days,
-        status: sheetData.status,
-      });
-    }, 30000);
+      if (saveMutation.isPending) return;
+      saveMutation.mutate(buildSavePayload());
+    }, AUTO_SAVE_DEBOUNCE_MS);
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [sheetData, isDirty]);
+  }, [sheetData, isDirty, buildSavePayload, saveMutation.isPending]);
+
+  // Best-effort: flush unsaved changes when user background/navigates away.
+  useEffect(() => {
+    const flush = () => {
+      if (!isDirtyRef.current) return;
+      const d = sheetDataRef.current;
+      if (!d.driver_name) return;
+      if (saveMutation.isPending) return;
+      saveMutation.mutate(buildSavePayload());
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [buildSavePayload, saveMutation]);
 
   const handleHeaderChange = useCallback((updates: Partial<typeof sheetData>) => {
     setSheetData((prev) => {
