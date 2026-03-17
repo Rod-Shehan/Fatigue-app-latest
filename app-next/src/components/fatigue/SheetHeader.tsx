@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { User, Users, MapPin, Calendar } from "lucide-react";
+import { User, Users, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
@@ -20,7 +20,6 @@ type SheetData = {
   driver_name?: string;
   second_driver?: string;
   driver_type?: string;
-  destination?: string;
   last_24h_break?: string;
   week_starting?: string;
 };
@@ -148,18 +147,6 @@ export default function SheetHeader({
             )}
           </div>
         )}
-        <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
-            <MapPin className="w-3 h-3" /> Destination
-          </Label>
-          <Input
-            value={sheetData.destination || ""}
-            onChange={(e) => handleChange("destination", e.target.value)}
-            placeholder="Destination"
-            className="h-9"
-            disabled={readOnly}
-          />
-        </div>
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Last 24 Hour Break</Label>
           {last24hSet ? (
