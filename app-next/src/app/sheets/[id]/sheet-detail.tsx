@@ -631,42 +631,8 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
             driverType={sheetData.driver_type}
             primaryDriverName={sheetData.driver_name}
             secondDriverName={sheetData.second_driver}
+            forgottenActionReminder={forgottenActionReminder}
           />
-          {forgottenActionReminder && (
-            <div
-              role="alert"
-              className="mx-4 mt-2 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100"
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <p className="flex-1 font-medium min-w-0">{forgottenActionReminder.message}</p>
-              </div>
-              {forgottenActionReminder.variant === "end-shift" && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-200 w-full">Choose:</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 text-xs border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-800/50"
-                    onClick={() => handleEndShiftRequest(currentDayIndex)}
-                  >
-                    <Square className="w-3.5 h-3.5" />
-                    End shift at {new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 text-xs border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-amber-100/50 dark:hover:bg-amber-800/30"
-                    onClick={handleAssumeIdle}
-                  >
-                    Mark non-work from {new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
         </>
       )}
       <div className="max-w-[1400px] mx-auto px-4 py-6">

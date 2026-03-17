@@ -202,6 +202,7 @@ export default function LogBar({
   driverType,
   primaryDriverName,
   secondDriverName,
+  forgottenActionReminder,
 }: {
   days: DayData[];
   currentDayIndex: number;
@@ -226,6 +227,8 @@ export default function LogBar({
   primaryDriverName?: string;
   /** Two-up second driver name (sheet second_driver). */
   secondDriverName?: string;
+  /** Reminder banner content (e.g. forgot end shift). Rendered prominently inside fixed header. */
+  forgottenActionReminder?: { message: string; variant: "break-due" | "end-shift" | "break-complete" | "break-long" } | null;
 }) {
   const [pendingType, setPendingType] = useState<string | null>(null);
   const [activeDriver, setActiveDriver] = useState<"primary" | "second">("primary");
@@ -560,14 +563,6 @@ export default function LogBar({
               />
             )}
           </div>
-          {onAssumeIdle && (
-            <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-              Forgot to end shift?{" "}
-              <button type="button" onClick={onAssumeIdle} className="underline font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100">
-                Mark as non-work from now
-              </button>
-            </p>
-          )}
         </div>
       )}
     </div>
@@ -587,6 +582,36 @@ export default function LogBar({
             <ThemeToggle />
           </div>
         </div>
+        {forgottenActionReminder && (
+          <div
+            role="alert"
+            className="max-w-[1400px] mx-auto mt-2 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
+              <p className="flex-1 font-medium min-w-0">{forgottenActionReminder.message}</p>
+            </div>
+            {forgottenActionReminder.variant === "end-shift" && onEndShiftRequest && onAssumeIdle && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onEndShiftRequest(currentDayIndex)}
+                  className="h-11 w-full rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center justify-center gap-2"
+                >
+                  <Square className="w-4 h-4" />
+                  End shift now
+                </button>
+                <button
+                  type="button"
+                  onClick={onAssumeIdle}
+                  className="h-11 w-full rounded-lg bg-white/80 dark:bg-slate-900/50 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-100 font-semibold"
+                >
+                  Mark non-work from now
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {workWarning && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" aria-modal role="alertdialog" aria-labelledby="work-warning-title">
             <div className="mx-4 max-w-sm rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-600 shadow-xl p-4 space-y-3">
