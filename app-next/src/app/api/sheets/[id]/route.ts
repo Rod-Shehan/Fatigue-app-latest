@@ -88,13 +88,26 @@ export async function PATCH(
       status,
       signature,
       signed_at,
+      amendment_reason,
     } = body;
 
-    // Lock after completion/signature: once completed, prevent edits (except manager "amendments" in a future flow).
-    if (sheet.status === "completed") {
+    // Lock after completion/signature:
+    // - Drivers cannot edit completed sheets.
+    // - Managers can amend completed sheets with an explicit reason; amendment clears signature and reopens as draft.
+    const isCompleted = sheet.status === "completed";
+    const manager = await getManagerSession();
+    const isManager = !!manager;
+    const isAmendment = typeof amendment_reason === "string" && amendment_reason.trim().length > 0;
+    if (isCompleted && !isManager) {
       return NextResponse.json(
-        { error: "This sheet is completed and locked. Create an amendment to make changes." },
+        { error: "This sheet is completed and locked. A manager must create an amendment to make changes." },
         { status: 409 }
+      );
+    }
+    if (isCompleted && isManager && !isAmendment) {
+      return NextResponse.json(
+        { error: "Amendment reason is required to edit a completed sheet.", code: "AMENDMENT_REASON_REQUIRED" },
+        { status: 400 }
       );
     }
 
@@ -141,6 +154,16 @@ export async function PATCH(
     if (signed_at !== undefined) data.signedAt = signed_at ? new Date(signed_at) : null;
 
     const changeKeys = Object.keys(data);
+
+    // For manager amendments on completed sheets: reopen and clear signature so it can be re-signed.
+    if (isCompleted && isManager && isAmendment) {
+      data.status = "draft";
+      data.signature = null;
+      data.signedAt = null;
+      if (!changeKeys.includes("status")) changeKeys.push("status");
+      if (!changeKeys.includes("signature")) changeKeys.push("signature");
+      if (!changeKeys.includes("signedAt")) changeKeys.push("signedAt");
+    }
     const updated = await prisma.fatigueSheet.update({
       where: { id },
       data: data as Parameters<typeof prisma.fatigueSheet.update>[0]["data"],
@@ -151,12 +174,14 @@ export async function PATCH(
       data: {
         sheetId: id,
         actorId: access.userId,
-        action:
-          status === "completed" || signature !== undefined || signed_at !== undefined
-            ? "complete_sheet"
-            : "update_sheet",
+        action: isCompleted && isManager && isAmendment
+          ? "amend_sheet"
+          : status === "completed" || signature !== undefined || signed_at !== undefined
+              ? "complete_sheet"
+              : "update_sheet",
         payload: {
           changed_fields: changeKeys,
+          amendment_reason: isCompleted && isManager && isAmendment ? amendment_reason.trim() : undefined,
           status_before: sheet.status,
           status_after: updated.status,
           had_signature_before: !!sheet.signature,
