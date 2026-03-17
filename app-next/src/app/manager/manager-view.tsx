@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type FatigueSheet, type ManagerComplianceItem } from "@/lib/api";
+import { api, type FatigueSheet, type ManagerComplianceItem, type SheetUpdatePayload } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -66,6 +67,8 @@ export function ManagerView() {
   const queryClient = useQueryClient();
   const [selectedSheetId, setSelectedSheetId] = useState<string>("");
   const [lastSheetId, setLastSheetId] = useState<string | null>(null);
+  const [showAmendDialog, setShowAmendDialog] = useState(false);
+  const [amendmentReason, setAmendmentReason] = useState("");
 
   useEffect(() => {
     try {
@@ -124,12 +127,24 @@ export function ManagerView() {
   }, [selectedSheet, selectedSheetId]);
 
   const saveMutation = useMutation({
-    mutationFn: (payload: Partial<FatigueSheet>) =>
+    mutationFn: (payload: SheetUpdatePayload) =>
       api.sheets.update(selectedSheetId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sheet", selectedSheetId] });
       queryClient.invalidateQueries({ queryKey: ["sheets"] });
       queryClient.invalidateQueries({ queryKey: ["manager", "compliance"] });
+    },
+  });
+
+  const amendMutation = useMutation({
+    mutationFn: (reason: string) =>
+      api.sheets.update(selectedSheetId, { amendment_reason: reason.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sheet", selectedSheetId] });
+      queryClient.invalidateQueries({ queryKey: ["sheets"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "compliance"] });
+      setShowAmendDialog(false);
+      setAmendmentReason("");
     },
   });
 
@@ -159,6 +174,8 @@ export function ManagerView() {
       second_driver: form.second_driver || undefined,
     });
   };
+
+  const canAmend = !!selectedSheetId && (selectedSheet?.status ?? "") === "completed";
 
   const hasChanges =
     selectedSheet &&
@@ -403,6 +420,18 @@ export function ManagerView() {
                           )}
                           Save changes
                         </Button>
+                        {canAmend && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-amber-300 text-amber-800 hover:bg-amber-50"
+                            onClick={() => setShowAmendDialog(true)}
+                            disabled={amendMutation.isPending || saveMutation.isPending}
+                          >
+                            <FileEdit className="w-4 h-4" />
+                            Amend (unlock)
+                          </Button>
+                        )}
                         {saveMutation.isSuccess && (
                           <span className="text-sm text-green-600">
                             Saved.
@@ -441,6 +470,46 @@ export function ManagerView() {
               )}
             </div>
           </div>
+
+          <Dialog open={showAmendDialog} onOpenChange={setShowAmendDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Amend completed sheet</DialogTitle>
+                <DialogDescription>
+                  This will reopen the sheet as <strong>draft</strong> and clear the signature so it can be re-signed. An audit log entry will be recorded.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="amendment_reason" className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                  Amendment reason (required)
+                </Label>
+                <Input
+                  id="amendment_reason"
+                  value={amendmentReason}
+                  onChange={(e) => setAmendmentReason(e.target.value)}
+                  placeholder="e.g. Corrected start KM entered incorrectly by driver"
+                />
+                {amendMutation.isError && (
+                  <p className="text-sm text-red-600">
+                    {amendMutation.error instanceof Error ? amendMutation.error.message : "Amendment failed."}
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowAmendDialog(false)} disabled={amendMutation.isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  className="gap-2"
+                  onClick={() => amendMutation.mutate(amendmentReason)}
+                  disabled={amendMutation.isPending || amendmentReason.trim().length === 0}
+                >
+                  {amendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Amend & unlock
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
             <div className="flex items-center gap-2 mb-4">

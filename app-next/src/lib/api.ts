@@ -72,6 +72,11 @@ export type FatigueSheet = {
   created_date?: string;
 };
 
+export type SheetUpdatePayload = Partial<FatigueSheet> & {
+  /** Required when amending a completed sheet (manager only). */
+  amendment_reason?: string;
+};
+
 /** Compliance check result (server is source of truth). */
 export type ComplianceCheckResult = {
   type: "violation" | "warning";
@@ -149,7 +154,7 @@ export const api = {
       fetchApi<{ maxEndKms: number | null }>(`/api/rego-kms?rego=${encodeURIComponent(rego)}`),
     create: (data: Omit<FatigueSheet, "id" | "created_date">) =>
       fetchApi<FatigueSheet>("/api/sheets", { method: "POST", body: data }),
-    update: (id: string, data: Partial<FatigueSheet>) =>
+    update: (id: string, data: SheetUpdatePayload) =>
       fetchApi<FatigueSheet>(`/api/sheets/${id}`, { method: "PATCH", body: data }),
     delete: (id: string) =>
       fetchApi<void>(`/api/sheets/${id}`, { method: "DELETE" }),
