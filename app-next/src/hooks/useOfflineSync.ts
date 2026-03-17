@@ -10,6 +10,15 @@ export function useOfflineSync() {
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingCount, setPendingCount] = useState(0);
 
+  const probeOnline = async (): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/ping", { method: "HEAD", cache: "no-store" });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   const doSync = async () => {
     if (!isOnline()) return;
     const result = await runSync();
@@ -51,6 +60,25 @@ export function useOfflineSync() {
     const interval = setInterval(() => {
       getPendingCount().then(setPendingCount).catch(() => setPendingCount(0));
     }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Some devices/browsers report navigator.onLine incorrectly; confirm with a lightweight probe.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const navOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+      if (navOnline) {
+        setOnline(true);
+        return;
+      }
+      // If browser claims offline, verify with a HEAD request.
+      probeOnline()
+        .then((ok) => {
+          setOnline(ok);
+          if (ok) doSync().catch(() => {});
+        })
+        .catch(() => {});
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
