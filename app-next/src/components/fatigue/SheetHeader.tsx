@@ -171,6 +171,7 @@ export default function SheetHeader({
                 ref={last24hDateInputRef}
                 type="date"
                 value={last24hPickerValue}
+                placeholder="Set last 24h break"
                 disabled={readOnly}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -184,11 +185,6 @@ export default function SheetHeader({
                 className="h-9 w-full rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 pl-10 pr-3 font-medium text-amber-900 dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-300"
                 aria-label="Set last 24 hour break date"
               />
-              {last24hPickerValue === "" && (
-                <span className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-sm text-amber-800/80 dark:text-amber-200/80">
-                  Set last 24h break
-                </span>
-              )}
               <Dialog
                 open={confirmLast24hOpen}
                 onOpenChange={(open) => {
