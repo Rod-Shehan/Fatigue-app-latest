@@ -37,6 +37,7 @@ export default function SheetHeader({
   const last24hDateInputRef = useRef<HTMLInputElement>(null);
   const [confirmLast24hOpen, setConfirmLast24hOpen] = useState(false);
   const [pendingLast24hDate, setPendingLast24hDate] = useState<string>("");
+  const [confirmLast24hChecked, setConfirmLast24hChecked] = useState(false);
 
   const handleChange = (field: string, value: unknown) => {
     onChange({ ...sheetData, [field]: value });
@@ -162,12 +163,17 @@ export default function SheetHeader({
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Last 24 Hour Break</Label>
           {last24hSet ? (
-            <div className="h-9 flex flex-col justify-center rounded-md border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-3">
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200 font-mono">
-                {formatLast24hBreakDate(sheetData.last_24h_break!)}
-              </p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500">Locked for this sheet</p>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled
+              className="h-9 w-full justify-start gap-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium opacity-100 cursor-not-allowed"
+            >
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="font-mono">{formatLast24hBreakDate(sheetData.last_24h_break!)}</span>
+              <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500">Locked</span>
+            </Button>
           ) : (
             <div className="relative">
               <input
@@ -180,6 +186,7 @@ export default function SheetHeader({
                   const v = e.target.value;
                   if (v) {
                     setPendingLast24hDate(v);
+                    setConfirmLast24hChecked(false);
                     setConfirmLast24hOpen(true);
                   }
                 }}
@@ -199,14 +206,17 @@ export default function SheetHeader({
                 open={confirmLast24hOpen}
                 onOpenChange={(open) => {
                   setConfirmLast24hOpen(open);
-                  if (!open) setPendingLast24hDate("");
+                  if (!open) {
+                    setPendingLast24hDate("");
+                    setConfirmLast24hChecked(false);
+                  }
                 }}
               >
                 <DialogContent className="sm:max-w-sm">
                   <DialogHeader>
                     <DialogTitle>Confirm last 24 hour break</DialogTitle>
                     <DialogDescription>
-                      Set this date as your last 24 hour break? Once set, it cannot be changed for this sheet.
+                      Set this date as your last 24 hour break? Once set, it will be locked for this sheet (manager amendment required to change).
                     </DialogDescription>
                   </DialogHeader>
                   {pendingLast24hDate && (
@@ -214,6 +224,15 @@ export default function SheetHeader({
                       {formatLast24hBreakDate(pendingLast24hDate)}
                     </p>
                   )}
+                  <label className="flex items-start gap-2 pt-1 text-sm text-slate-700 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={confirmLast24hChecked}
+                      onChange={(e) => setConfirmLast24hChecked(e.target.checked)}
+                    />
+                    <span>I confirm this date is correct.</span>
+                  </label>
                   <div className="flex gap-2 justify-end pt-2">
                     <Button
                       type="button"
@@ -222,6 +241,7 @@ export default function SheetHeader({
                       onClick={() => {
                         setConfirmLast24hOpen(false);
                         setPendingLast24hDate("");
+                        setConfirmLast24hChecked(false);
                       }}
                     >
                       Cancel
@@ -229,10 +249,12 @@ export default function SheetHeader({
                     <Button
                       type="button"
                       size="sm"
+                      disabled={!confirmLast24hChecked}
                       onClick={() => {
                         handleChange("last_24h_break", pendingLast24hDate);
                         setConfirmLast24hOpen(false);
                         setPendingLast24hDate("");
+                        setConfirmLast24hChecked(false);
                       }}
                       className="bg-slate-900 hover:bg-slate-800"
                     >
