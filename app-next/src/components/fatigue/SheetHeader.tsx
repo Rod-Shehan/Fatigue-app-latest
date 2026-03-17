@@ -165,17 +165,7 @@ export default function SheetHeader({
             </Button>
           ) : (
             <div className="relative">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={readOnly}
-                className="h-9 w-full justify-start gap-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50 hover:border-amber-400 dark:hover:border-amber-600 font-medium"
-              >
-                <Calendar className="w-4 h-4 text-amber-600" />
-                Set last 24h break
-              </Button>
-              {/* Mobile-safe: the date input is what you actually tap (overlays the button). */}
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-600" />
               <input
                 key={last24hPickerResetKey}
                 ref={last24hDateInputRef}
@@ -191,9 +181,14 @@ export default function SheetHeader({
                     setConfirmLast24hOpen(true);
                   }
                 }}
-                className="absolute inset-0 h-9 w-full opacity-0 cursor-pointer"
+                className="h-9 w-full rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 pl-10 pr-3 font-medium text-amber-900 dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-300"
                 aria-label="Set last 24 hour break date"
               />
+              {last24hPickerValue === "" && (
+                <span className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-sm text-amber-800/80 dark:text-amber-200/80">
+                  Set last 24h break
+                </span>
+              )}
               <Dialog
                 open={confirmLast24hOpen}
                 onOpenChange={(open) => {
