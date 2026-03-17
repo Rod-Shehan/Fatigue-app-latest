@@ -231,7 +231,7 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
           type: "warning",
           iconKey: "Coffee",
           day: dayLabel,
-          message: "20 min break for ea 5 hours work time - 10 min minimum x 2",
+          message: "20 min break per 5 hours work (incl. ≥10 min continuous)",
         });
       }
     }

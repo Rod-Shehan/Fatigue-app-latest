@@ -36,7 +36,7 @@ function getNextWorkBreakType(currentType: string | null): "work" | "break" {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MIN_BREAK_TOTAL_MINUTES = 20;
 const MIN_BREAK_BLOCK_MINUTES = 10;
-const BREAK_BLOCKS_REQUIRED = 2;
+const BREAK_BLOCKS_REQUIRED = 1;
 /** Minimum non-work time (hours) between shifts. */
 const MIN_NON_WORK_HOURS_BETWEEN_SHIFTS = 7;
 const CONFIRM_RESET_MS = 2500;
@@ -94,7 +94,7 @@ function getBreakWarningIfNeeded(events: { time: string; type: string }[], nowMs
   if (last.type !== "break") return null;
   if (workMinsSinceValidBreak < WORK_TARGET_MINUTES) return null;
   if (breakBlockIsValid(breakSegments)) return null;
-  return "20 min break for ea 5 hours work time - 10 min minimum x 2";
+  return "20 min break per 5 hours work (incl. ≥10 min continuous)";
 }
 
 /**

@@ -337,7 +337,7 @@ export default function EventLogger({
           {currentType === "break" && (
             <span className={`text-[10px] font-semibold flex items-center gap-1 ${breakRun.total >= MIN_BREAK_TOTAL_MINUTES && breakRun.blocksOf10 >= BREAK_BLOCKS_REQUIRED ? "text-emerald-600" : "text-amber-600"}`}>
               {breakRun.total >= MIN_BREAK_TOTAL_MINUTES && breakRun.blocksOf10 >= BREAK_BLOCKS_REQUIRED ? <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-3 h-3 shrink-0" />}
-              20 min break for ea 5 hours work time - 10 min minimum x 2
+              20 min break per 5 hours work (incl. ≥10 min continuous)
             </span>
           )}
         </div>
