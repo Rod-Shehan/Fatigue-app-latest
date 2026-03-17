@@ -36,13 +36,65 @@ function getNextWorkBreakType(currentType: string | null): "work" | "break" {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MIN_BREAK_TOTAL_MINUTES = 20;
 const MIN_BREAK_BLOCK_MINUTES = 10;
-const BREAK_BLOCKS_REQUIRED = 1;
+const BREAK_BLOCKS_REQUIRED = 2;
 /** Minimum non-work time (hours) between shifts. */
 const MIN_NON_WORK_HOURS_BETWEEN_SHIFTS = 7;
 const CONFIRM_RESET_MS = 2500;
 
 function getDurationMinutes(start: string, end: string) {
   return Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000);
+}
+
+function breakBlockIsValid(segments: number[]): boolean {
+  const totalMins = segments.reduce((a, b) => a + b, 0);
+  const blocksOf10 = segments.filter((m) => m >= MIN_BREAK_BLOCK_MINUTES).length;
+  return totalMins >= MIN_BREAK_TOTAL_MINUTES && blocksOf10 >= BREAK_BLOCKS_REQUIRED;
+}
+
+/**
+ * Computes whether a warning should be shown when switching to "work" now.
+ * We only warn once there's actually been ~5h of work since the last valid break (or a stop/non_work reset).
+ */
+function getBreakWarningIfNeeded(events: { time: string; type: string }[], nowMs: number): string | null {
+  if (events.length === 0) return null;
+
+  // Simulate the timeline up to "now" (end of last segment is now).
+  let workMinsSinceValidBreak = 0;
+  let breakSegments: number[] = [];
+  let breakStartMs: number | null = null;
+
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    const segStart = new Date(ev.time).getTime();
+    const segEnd = i + 1 < events.length ? new Date(events[i + 1].time).getTime() : nowMs;
+    const dur = Math.max(0, Math.floor((segEnd - segStart) / 60000));
+
+    if (ev.type === "work") {
+      // If we just finished a break block, decide whether it reset the window.
+      if (breakSegments.length > 0) {
+        if (breakBlockIsValid(breakSegments)) workMinsSinceValidBreak = 0;
+        breakSegments = [];
+        breakStartMs = null;
+      }
+      workMinsSinceValidBreak += dur;
+    } else if (ev.type === "break") {
+      if (breakStartMs == null) breakStartMs = segStart;
+      breakSegments.push(dur);
+    } else {
+      // non_work or stop: reset the 5h window tracking.
+      workMinsSinceValidBreak = 0;
+      breakSegments = [];
+      breakStartMs = null;
+    }
+  }
+
+  // If we're about to start work after a break, the last event should be "break".
+  // Only warn if we already have ~5h of work banked and this last break block is not valid.
+  const last = events[events.length - 1];
+  if (last.type !== "break") return null;
+  if (workMinsSinceValidBreak < WORK_TARGET_MINUTES) return null;
+  if (breakBlockIsValid(breakSegments)) return null;
+  return "20 min break for ea 5 hours work time - 10 min minimum x 2";
 }
 
 /**
@@ -235,22 +287,6 @@ export default function LogBar({
     setWorkWarning(null);
   }, [currentDayIndex, clearPending]);
 
-  const getBreakWarning = (newType: string) => {
-    if (newType !== "work") return null;
-    const segments: number[] = [];
-    for (let i = events.length - 1; i >= 0; i--) {
-      if (events[i].type !== "break") break;
-      const end = i + 1 < events.length ? new Date(events[i + 1].time).getTime() : Date.now();
-      const start = new Date(events[i].time).getTime();
-      segments.unshift(Math.floor((end - start) / 60000));
-    }
-    const totalMins = segments.reduce((a, b) => a + b, 0);
-    const blocksOf10 = segments.filter((m) => m >= MIN_BREAK_BLOCK_MINUTES).length;
-    if (totalMins < MIN_BREAK_TOTAL_MINUTES || blocksOf10 < BREAK_BLOCKS_REQUIRED)
-      return `20 min break for ea 5 hours work time - 10 min minimum x 2`;
-    return null;
-  };
-
   /** Warning when finishing a break (switching to work): short breaks count as work time. */
   const getShortBreakWarning = (newType: string) => {
     if (newType !== "work" || currentType !== "break" || !lastEvent) return null;
@@ -296,7 +332,7 @@ export default function LogBar({
 
     if (pendingType === type) {
       if (type === "work") {
-        const insufficientBreakMsg = getBreakWarning(type);
+        const insufficientBreakMsg = getBreakWarningIfNeeded(events, Date.now());
         if (insufficientBreakMsg) {
           setWorkWarning({
             message: insufficientBreakMsg,
