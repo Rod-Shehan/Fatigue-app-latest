@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageSquare, Plus, Send, ExternalLink } from "lucide-react";
+import { MessageBubbleRow } from "@/components/messaging/MessageBubbleRow";
 
 function formatWhen(iso: string) {
   const d = new Date(iso);
@@ -196,7 +197,7 @@ export function MessagesView() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 space-y-3">
+            <div className="flex-1 overflow-auto p-4 space-y-4 bg-slate-100/80 dark:bg-slate-950/50">
               {!activeThreadId ? (
                 <div className="text-sm text-slate-600 dark:text-slate-300">
                   Choose a thread on the left, or start a new message.
@@ -207,15 +208,14 @@ export function MessagesView() {
                 <div className="text-sm text-slate-600 dark:text-slate-300">No messages yet.</div>
               ) : (
                 messages.map((m) => (
-                  <div key={m.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                        {m.sender.name || m.sender.email || "User"}
-                      </p>
-                      <span className="text-[10px] text-slate-400">{formatWhen(m.createdAt)}</span>
-                    </div>
-                    <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap mt-2">{m.body}</p>
-                  </div>
+                  <MessageBubbleRow
+                    key={m.id}
+                    body={m.body}
+                    createdAt={formatWhen(m.createdAt)}
+                    senderLabel={m.sender.name || m.sender.email || "User"}
+                    fromManager={m.sender.role === "manager"}
+                    viewerIsManager={false}
+                  />
                 ))
               )}
             </div>
