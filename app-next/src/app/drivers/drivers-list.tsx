@@ -1,23 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
-import { Plus, Trash2, UserCheck, UserX, Loader2, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Plus, Trash2, UserCheck, UserX, Loader2, Users, Pencil } from "lucide-react";
 
 export function DriversList() {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newLicence, setNewLicence] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [activeDriverId, setActiveDriverId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editLicence, setEditLicence] = useState("");
+  const [editActive, setEditActive] = useState(true);
+
   const { data: drivers = [], isLoading } = useQuery({
     queryKey: ["drivers"],
     queryFn: () => api.drivers.list(),
   });
+
+  const activeDriver = useMemo(
+    () => (activeDriverId ? drivers.find((d) => d.id === activeDriverId) ?? null : null),
+    [activeDriverId, drivers]
+  );
+
   const createMutation = useMutation({
     mutationFn: (data: { name: string; email?: string; licence_number?: string }) =>
       api.drivers.create({ ...data, is_active: true }),
@@ -33,9 +49,27 @@ export function DriversList() {
       api.drivers.update(id, { is_active }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["drivers"] }),
   });
+  const updateMutation = useMutation({
+    mutationFn: (payload: { id: string; name: string; email: string; licence_number: string; is_active: boolean }) =>
+      api.drivers.update(payload.id, {
+        name: payload.name,
+        email: payload.email,
+        licence_number: payload.licence_number || null,
+        is_active: payload.is_active,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      setEditOpen(false);
+      setActiveDriverId(null);
+    },
+  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.drivers.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["drivers"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      setDeleteOpen(false);
+      setActiveDriverId(null);
+    },
   });
 
   function handleAdd(e: React.FormEvent) {
@@ -46,6 +80,22 @@ export function DriversList() {
       email: newEmail.trim() ? newEmail.trim() : undefined,
       licence_number: newLicence.trim(),
     });
+  }
+
+  function openEdit(driverId: string) {
+    const d = drivers.find((x) => x.id === driverId);
+    if (!d) return;
+    setActiveDriverId(driverId);
+    setEditName(d.name ?? "");
+    setEditEmail(d.email ?? "");
+    setEditLicence(d.licence_number ?? "");
+    setEditActive(!!d.is_active);
+    setEditOpen(true);
+  }
+
+  function openDelete(driverId: string) {
+    setActiveDriverId(driverId);
+    setDeleteOpen(true);
   }
 
   return (
@@ -129,6 +179,14 @@ export function DriversList() {
               </span>
               <button
                 type="button"
+                onClick={() => openEdit(driver.id)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                title="Edit"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => toggleMutation.mutate({ id: driver.id, is_active: !driver.is_active })}
                 className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                 title={driver.is_active ? "Deactivate" : "Activate"}
@@ -137,7 +195,7 @@ export function DriversList() {
               </button>
               <button
                 type="button"
-                onClick={() => deleteMutation.mutate(driver.id)}
+                onClick={() => openDelete(driver.id)}
                 className="text-slate-300 dark:text-slate-500 hover:text-red-400 dark:hover:text-red-400"
                 title="Delete"
               >
@@ -146,6 +204,129 @@ export function DriversList() {
             </div>
           ))}
         </div>
+
+        <Dialog
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) {
+              setActiveDriverId(null);
+              updateMutation.reset();
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit driver</DialogTitle>
+              <DialogDescription>Update the roster record (and login email/name).</DialogDescription>
+            </DialogHeader>
+
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!activeDriverId) return;
+                updateMutation.mutate({
+                  id: activeDriverId,
+                  name: editName.trim(),
+                  email: editEmail.trim(),
+                  licence_number: editLicence.trim(),
+                  is_active: editActive,
+                });
+              }}
+            >
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">Full name</Label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">Email</Label>
+                <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} type="email" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">Licence no. (optional)</Label>
+                <Input value={editLicence} onChange={(e) => setEditLicence(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                <input type="checkbox" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} />
+                Active
+              </label>
+
+              {updateMutation.isError && (
+                <p className="text-sm text-red-600 font-medium" role="alert">
+                  {updateMutation.error instanceof Error ? updateMutation.error.message : "Failed to update driver."}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                  disabled={updateMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-slate-900 hover:bg-slate-800 text-white"
+                  disabled={updateMutation.isPending || !editName.trim() || !editEmail.trim()}
+                >
+                  {updateMutation.isPending ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={deleteOpen}
+          onOpenChange={(open) => {
+            setDeleteOpen(open);
+            if (!open) {
+              setActiveDriverId(null);
+              deleteMutation.reset();
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete driver?</DialogTitle>
+              <DialogDescription>
+                This removes the driver from the roster. It won&apos;t delete existing sheets that reference the driver name.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="text-sm text-slate-700 dark:text-slate-200">
+              <span className="font-semibold">{activeDriver?.name ?? "This driver"}</span>
+              {activeDriver?.email ? <span className="text-slate-500"> ({activeDriver.email})</span> : null}
+            </div>
+
+            {deleteMutation.isError && (
+              <p className="text-sm text-red-600 font-medium" role="alert">
+                {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Failed to delete driver."}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteOpen(false)}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={!activeDriverId || deleteMutation.isPending}
+                onClick={() => activeDriverId && deleteMutation.mutate(activeDriverId)}
+              >
+                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

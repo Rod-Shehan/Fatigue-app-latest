@@ -142,7 +142,7 @@ export const api = {
     list: () => fetchApi<Driver[]>("/api/drivers"),
     create: (data: { name: string; email?: string; licence_number?: string; is_active?: boolean }) =>
       fetchApi<Driver>("/api/drivers", { method: "POST", body: data }),
-    update: (id: string, data: { is_active?: boolean; name?: string; email?: string | null }) =>
+    update: (id: string, data: { is_active?: boolean; name?: string; email?: string | null; licence_number?: string | null }) =>
       fetchApi<Driver>(`/api/drivers/${id}`, { method: "PATCH", body: data }),
     delete: (id: string) =>
       fetchApi<void>(`/api/drivers/${id}`, { method: "DELETE" }),

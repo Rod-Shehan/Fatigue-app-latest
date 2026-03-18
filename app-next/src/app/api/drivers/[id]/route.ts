@@ -15,7 +15,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await _req.json();
-    const { is_active, email, name } = body;
+    const { is_active, email, name, licence_number } = body;
 
     const normalizedEmail =
       email === undefined
@@ -35,11 +35,21 @@ export async function PATCH(
     if (name !== undefined && (!trimmedName || trimmedName.length < 2)) {
       return NextResponse.json({ error: "Valid name required" }, { status: 400 });
     }
+    const normalizedLicence =
+      licence_number === undefined
+        ? undefined
+        : typeof licence_number === "string"
+          ? licence_number.trim() || null
+          : null;
+    if (licence_number !== undefined && normalizedLicence === null) {
+      return NextResponse.json({ error: "Valid licence number required" }, { status: 400 });
+    }
 
     const data: Parameters<typeof prisma.driver.update>[0]["data"] = {
       ...(is_active !== undefined ? { isActive: is_active } : null),
       ...(normalizedEmail !== undefined ? { email: normalizedEmail } : null),
       ...(trimmedName !== undefined ? { name: trimmedName } : null),
+      ...(normalizedLicence !== undefined ? { licenceNumber: normalizedLicence } : null),
     } as Parameters<typeof prisma.driver.update>[0]["data"];
 
     const driver = await prisma.driver.update({
