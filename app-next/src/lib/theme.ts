@@ -1,5 +1,5 @@
 /**
- * Activity theme – single source of truth for Work / Break / Non-Work Time / End Shift.
+ * Activity theme – single source of truth for Work / Break / Non-Work Time / End shift.
  * Used by LogBar, TimeGrid, EventLogger, and CompliancePanel.
  *
  * Terminology: We use "non-work time" (not "rest") for recovery time away from work.

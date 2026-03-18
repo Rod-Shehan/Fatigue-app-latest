@@ -9,7 +9,7 @@ const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentTy
   work: { label: "Work", icon: Briefcase },
   break: { label: "Break", icon: Coffee },
   non_work: { label: "Non-Work Time", icon: Moon },
-  stop: { label: "End Shift", icon: Square },
+  stop: { label: "End shift", icon: Square },
 };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

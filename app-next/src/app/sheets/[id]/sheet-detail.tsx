@@ -116,16 +116,16 @@ function getForgottenActionReminder(
   const elapsedMin = Math.floor((Date.now() - new Date(last.time).getTime()) / 60000);
   if (last.type === "work") {
     if (elapsedMin >= WORK_FORGOT_END_SHIFT_MIN)
-      return { message: "Work has been running for 12+ hours. Tap End Shift if you've finished.", variant: "end-shift" };
+      return { message: "Work has been running for 12+ hours. Tap End shift if you've finished.", variant: "end-shift" };
     if (elapsedMin >= WORK_BREAK_DUE_MIN)
       return { message: "Time for your 20 min break — tap Break when you start.", variant: "break-due" };
     return null;
   }
   if (last.type === "break") {
     if (elapsedMin >= BREAK_LONG_MIN)
-      return { message: "You've been on break for over an hour. Tap Work to resume or End Shift to finish.", variant: "break-long" };
+      return { message: "You've been on break for over an hour. Tap Work to resume or End shift to finish.", variant: "break-long" };
     if (elapsedMin >= BREAK_COMPLETE_MIN)
-      return { message: "Break complete — tap Work to resume or End Shift to finish.", variant: "break-complete" };
+      return { message: "Break complete — tap Work to resume or End shift to finish.", variant: "break-complete" };
     return null;
   }
   return null;
@@ -871,7 +871,7 @@ export function SheetDetail({
               End shift
             </DialogTitle>
             <DialogDescription>
-              Enter end odometer. This will log End Shift for today and switch to non-work time. Start km and end km are required; end km must not be lower than any previous entry for this rego.
+              Enter end odometer. This will log End shift for today and switch to non-work time. Start km and end km are required; end km must not be lower than any previous entry for this rego.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-1">

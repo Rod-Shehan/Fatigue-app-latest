@@ -25,10 +25,10 @@ const EVENT_LABELS: Record<ActivityKey, string> = {
   work: "Work",
   break: "Break",
   non_work: "Non-Work Time",
-  stop: "End Shift",
+  stop: "End shift",
 };
 
-/** Break follows work, work follows break. When idle or after End Shift, next is Work. */
+/** Break follows work, work follows break. When idle or after End shift, next is Work. */
 function getNextWorkBreakType(currentType: string | null): "work" | "break" {
   return currentType === "work" ? "break" : "work";
 }
@@ -211,7 +211,7 @@ export default function LogBar({
   weekStarting: string;
   /** Log a new event. When driver is provided and driverType is two_up, the event belongs to that driver. */
   onLogEvent: (dayIndex: number, type: string, driver?: "primary" | "second") => void;
-  /** When provided, End Shift (second tap) calls this instead of onLogEvent so the parent can show end km input. */
+  /** When provided, End shift (second tap) calls this instead of onLogEvent so the parent can show end km input. */
   onEndShiftRequest?: (dayIndex: number) => void;
   /** Optional icon shown to the left of the "Today" label in the top header row. */
   leadingIcon?: React.ReactNode;

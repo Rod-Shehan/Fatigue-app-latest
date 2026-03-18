@@ -11,7 +11,7 @@ const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentTy
   work: { label: "Work", icon: Briefcase },
   break: { label: "Break", icon: Coffee },
   non_work: { label: "Non-Work Time", icon: Moon },
-  stop: { label: "End Shift", icon: Square },
+  stop: { label: "End shift", icon: Square },
 };
 
 const MIN_BREAK_TOTAL_MINUTES = 20;
@@ -41,7 +41,7 @@ const MINUTES_PER_SLOT = 30;
  * Work and break come from logged segments; all other time (including before
  * first event, after last event, non-work time, and end-shift) counts as non-work.
  * Rule: non-work is retrospective only — never shown after the present time on the current day.
- * Rule: work is continuous across midnight when there is no End Shift — previous day's
+ * Rule: work is continuous across midnight when there is no End shift — previous day's
  * work/break rolls into the next day from 00:00 until the first event (carryOver).
  * Rule: any gap shorter than 30 minutes between work is recorded as break, not non-work.
  * Rule: a completed break (has next event) shorter than 10 minutes is allocated to work time; ongoing breaks stay in break bar.
@@ -216,7 +216,7 @@ export function applyLast24hBreakNonWorkRule<T extends { work_time?: boolean[]; 
 
 /**
  * Derive work_time, breaks, non_work for all days with rollover: when the previous
- * day ended with work or break (no End Shift), that activity rolls into the next
+ * day ended with work or break (no End shift), that activity rolls into the next
  * day from 00:00 until the first event on that day.
  */
 export function deriveDaysWithRollover<T extends { events?: { time: string; type: string }[] }>(

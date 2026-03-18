@@ -37,6 +37,11 @@ export function ManagerMapView() {
     break: true,
     stop: true,
   });
+  const mapEventTypeLabel: Record<keyof typeof mapEventTypes, string> = {
+    work: "Work",
+    break: "Break",
+    stop: "End shift",
+  };
 
   const { data: sheets = [] } = useQuery({
     queryKey: ["sheets"],
@@ -157,7 +162,7 @@ export function ManagerMapView() {
                         }
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="capitalize">{type}</span>
+                      <span>{mapEventTypeLabel[type]}</span>
                     </label>
                   ))}
                 </div>
