@@ -20,6 +20,7 @@ function LoginForm() {
     !rawCallback.startsWith("//")
       ? rawCallback
       : "/sheets";
+  const managerLoginHint = searchParams.get("managerLogin") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -74,6 +75,14 @@ function LoginForm() {
             Drivers log shifts. Managers review compliance and event maps.
           </p>
         </div>
+        {managerLoginHint && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100">
+            <p className="font-semibold">Manager sign-in</p>
+            <p className="text-xs mt-1 text-amber-800 dark:text-amber-200/90">
+              Use a <strong>manager</strong> account below (or tap &quot;Sign in as Manager&quot; after entering email). You will be taken to the manager dashboard after signing in.
+            </p>
+          </div>
+        )}
         <form
           onSubmit={onSubmit}
           className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5"

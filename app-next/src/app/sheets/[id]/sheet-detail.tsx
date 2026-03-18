@@ -131,7 +131,16 @@ function getForgottenActionReminder(
   return null;
 }
 
-export function SheetDetail({ sheetId }: { sheetId: string }) {
+const MANAGER_LOGIN_HREF = `/login?callbackUrl=${encodeURIComponent("/manager")}&managerLogin=1`;
+
+export function SheetDetail({
+  sheetId,
+  canAccessManager,
+}: {
+  sheetId: string;
+  /** From server: user may open /manager without extra login */
+  canAccessManager: boolean;
+}) {
   const queryClient = useQueryClient();
   const [sheetData, setSheetData] = useState<{
     driver_name: string;
@@ -651,8 +660,13 @@ export function SheetDetail({ sheetId }: { sheetId: string }) {
           actions={
           <>
             <Link
-              href="/manager"
+              href={canAccessManager ? "/manager" : MANAGER_LOGIN_HREF}
               className="inline-flex items-center justify-center gap-1.5 shrink-0 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 sm:px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              title={
+                canAccessManager
+                  ? "Manager dashboard"
+                  : "Sign in with a manager account to open the manager dashboard"
+              }
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               Manager
