@@ -5,6 +5,6 @@ import { SheetsList } from "./sheets-list";
 
 export default async function SheetsPage() {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  if (!session) redirect("/login?callbackUrl=%2Fsheets");
   return <SheetsList />;
 }

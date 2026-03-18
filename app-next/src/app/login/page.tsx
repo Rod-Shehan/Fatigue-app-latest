@@ -52,7 +52,8 @@ function LoginForm() {
         return;
       }
       // Navigate via full reload so middleware/server sees the new session immediately.
-      window.location.assign(res?.url || safeRedirect);
+      // Use replace so Back doesn't return to a different login state.
+      window.location.replace(res?.url || safeRedirect);
     } catch {
       setError("Something went wrong.");
     }
