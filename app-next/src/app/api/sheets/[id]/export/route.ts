@@ -7,9 +7,10 @@ const TOTAL_MIN = 24 * 60;
 const GREY_TEXT = [30, 30, 30] as [number, number, number];
 const GREY_LABEL = [80, 80, 80] as [number, number, number];
 const GREY_LIGHT = [240, 240, 240] as [number, number, number];
-const GREY_WORK = [55, 55, 55] as [number, number, number];
-const GREY_BREAK = [115, 115, 115] as [number, number, number];
-const GREY_NON_WORK = [200, 200, 200] as [number, number, number];
+// Darker fills so recorded time is more obvious on print/PDF viewers.
+const GREY_WORK = [35, 35, 35] as [number, number, number];
+const GREY_BREAK = [90, 90, 90] as [number, number, number];
+const GREY_NON_WORK = [180, 180, 180] as [number, number, number];
 
 type SegmentType = "work" | "break" | "non_work";
 type TimelineSegment = { startMin: number; endMin: number; type: SegmentType };
@@ -290,8 +291,8 @@ export async function GET(
     const barLeft = margin + labelW;
     const tilePadding = 3;
     const tickH = 4;
-    const rowH = 6;
-    const rowGap = 2;
+    const rowH = 3;
+    const rowGap = 1.2;
 
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, pageW, 24, "F");
