@@ -101,6 +101,8 @@ export function MessagesView() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
         <PageHeader
+          backHref="/sheets"
+          backLabel="Your sheets"
           title="Messages"
           subtitle="Ask training questions or request sheet edits"
           icon={<MessageSquare className="w-5 h-5" />}
