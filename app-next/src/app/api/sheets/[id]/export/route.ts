@@ -50,6 +50,17 @@ function slotsToRanges(
   return ranges;
 }
 
+function perthDayStartUtcMs(ymd: string): number {
+  // Interpret "ymd" as midnight in Australia/Perth (UTC+8), expressed in UTC ms.
+  // Using an explicit offset avoids server timezone differences.
+  const ms = Date.parse(`${ymd}T00:00:00+08:00`);
+  return Number.isFinite(ms) ? ms : Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00+08:00`);
+}
+
+function perthDayEndUtcMs(ymd: string): number {
+  return perthDayStartUtcMs(ymd) + 24 * 60 * 60 * 1000 - 1;
+}
+
 function getEffectiveDayEndMinutes(dateStr: string, todayStr: string): number {
   if (dateStr > todayStr) return 0;
   if (dateStr < todayStr) return TOTAL_MIN;
@@ -106,8 +117,8 @@ function buildSegmentsFromEvents(
     breaks: [] as { startMin: number; endMin: number }[],
     non_work: [] as { startMin: number; endMin: number }[],
   };
-  const dayStart = new Date(dateStr + "T00:00:00").getTime();
-  const dayEnd = new Date(dateStr + "T23:59:59").getTime();
+  const dayStart = perthDayStartUtcMs(dateStr);
+  const dayEnd = perthDayEndUtcMs(dateStr);
   if (!events?.length) {
     if (effectiveEndMin > 0) segments.non_work = [{ startMin: 0, endMin: effectiveEndMin }];
     return segments;
