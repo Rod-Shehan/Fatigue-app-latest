@@ -92,8 +92,8 @@ export default function CompliancePanel({
             <p className="text-[10px] text-blue-400 font-mono">14d: {totalWork + prevWeekWork}h</p>
           )}
         </div>
-        <div className={`rounded-lg p-3 text-center ${ACTIVITY_THEME.break.statsCard}`} title="Short gaps (≤30 min) between work count as break. Breaks longer than 30 min count as non-work.">
-          <p className={`text-[10px] uppercase tracking-wider font-semibold ${ACTIVITY_THEME.break.statsLabel}`}>Breaks</p>
+        <div className={`rounded-lg p-3 text-center ${ACTIVITY_THEME.break.statsCard}`} title="Short gaps (≤30 min) between work count as break. Break longer than 30 min counts as non-work.">
+          <p className={`text-[10px] uppercase tracking-wider font-semibold ${ACTIVITY_THEME.break.statsLabel}`}>Break</p>
           <p className="text-[9px] text-slate-400 mt-0.5">≤30 min between work</p>
           <p className={`text-xl font-bold font-mono ${ACTIVITY_THEME.break.statsValue}`}>{totalBreaks}h</p>
         </div>

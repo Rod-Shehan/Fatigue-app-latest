@@ -62,6 +62,6 @@ export const ACTIVITY_THEME: Record<
 /** For TimeGrid bars: key, label, hex (no stop row in grid) */
 export const TIME_GRID_ROWS = [
   { key: "work_time" as const, label: "Work", color: ACTIVITY_THEME.work.hex },
-  { key: "breaks" as const, label: "Breaks", color: ACTIVITY_THEME.break.hex },
+  { key: "breaks" as const, label: "Break", color: ACTIVITY_THEME.break.hex },
   { key: "non_work" as const, label: "Non-Work Time", color: ACTIVITY_THEME.non_work.hex },
 ];

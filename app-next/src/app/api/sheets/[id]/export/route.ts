@@ -17,7 +17,7 @@ const GREY_NON_WORK = [180, 180, 180] as [number, number, number];
 
 type SegmentType = "work" | "break" | "non_work";
 type TimelineSegment = { startMin: number; endMin: number; type: SegmentType };
-const ROW_LABELS = ["Work", "Breaks", "Non-Work"] as const;
+const ROW_LABELS = ["Work", "Break", "Non-Work"] as const;
 
 function getDateStr(weekStarting: string | null, dayIndex: number): string {
   if (!weekStarting) return "—";
@@ -282,7 +282,7 @@ function renderPdfHtml(opts: {
   const hourLabels = Array.from({ length: 13 }, (_, i) => i * 2);
   const rows = [
     { key: "work_time" as const, label: "Work", fill: cssRgb(GREY_WORK), hatch: false },
-    { key: "breaks" as const, label: "Breaks", fill: cssRgb(GREY_BREAK), hatch: true },
+    { key: "breaks" as const, label: "Break", fill: cssRgb(GREY_BREAK), hatch: true },
     { key: "non_work" as const, label: "Non-Work", fill: cssRgb(GREY_NON_WORK), hatch: false },
   ];
 

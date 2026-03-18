@@ -304,7 +304,7 @@ export default function LogBar({
     const breakStart = new Date(lastEvent.time).getTime();
     const breakMinutes = Math.floor((Date.now() - breakStart) / 60000);
     if (breakMinutes >= MIN_BREAK_BLOCK_MINUTES) return null;
-    return "Breaks under 10 minutes are automatically counted as work time.";
+    return "Break under 10 minutes is automatically counted as work time.";
   };
 
   /** Warning when starting work with <7h non-work since last shift (rolling time: last stop anywhere). */
