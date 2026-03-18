@@ -60,23 +60,19 @@ function getEffectiveDayEndMinutes(dateStr: string, todayStr: string): number {
 }
 
 function getPerthNowParts(): { ymd: string; hour: number; minute: number } {
-  const dtf = new Intl.DateTimeFormat("en-AU", {
-    timeZone: "Australia/Perth",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = dtf.formatToParts(new Date());
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  const y = get("year");
-  const m = get("month");
-  const d = get("day");
-  const hour = Number(get("hour") || "0");
-  const minute = Number(get("minute") || "0");
-  return { ymd: `${y}-${m}-${d}`, hour, minute };
+  // Avoid relying on runtime timezone databases (some server environments fall back to UTC).
+  // Perth is always UTC+8 (no daylight saving), so compute it explicitly from UTC.
+  const PERTH_OFFSET_MIN = 8 * 60;
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
+  const perth = new Date(utcMs + PERTH_OFFSET_MIN * 60_000);
+  const y = perth.getUTCFullYear();
+  const m = perth.getUTCMonth() + 1;
+  const d = perth.getUTCDate();
+  const hour = perth.getUTCHours();
+  const minute = perth.getUTCMinutes();
+  const ymd = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return { ymd, hour, minute };
 }
 
 function rangesToGaps(
