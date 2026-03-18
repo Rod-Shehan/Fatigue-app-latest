@@ -27,7 +27,7 @@ export async function PATCH(
       if (normalizedEmail === null) {
         return NextResponse.json({ error: "Valid email required" }, { status: 400 });
       }
-      if (normalizedEmail !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      if (typeof normalizedEmail === "string" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
         return NextResponse.json({ error: "Valid email required" }, { status: 400 });
       }
     }
