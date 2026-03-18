@@ -13,6 +13,7 @@ const GREY_NON_WORK = [200, 200, 200] as [number, number, number];
 
 type SegmentType = "work" | "break" | "non_work";
 type TimelineSegment = { startMin: number; endMin: number; type: SegmentType };
+const ROW_LABELS = ["Work", "Breaks", "Non-Work Time"] as const;
 
 function getDateStr(weekStarting: string | null, dayIndex: number): string {
   if (!weekStarting) return "—";
@@ -283,11 +284,14 @@ export async function GET(
     const colW = pageW - margin * 2;
     const todayStr = new Date().toISOString().slice(0, 10);
     let y = 30;
-    const barW = colW;
-    const barLeft = margin;
+    const labelW = 22;
+    const subtotalW = 16;
+    const barW = colW - labelW - subtotalW - 4;
+    const barLeft = margin + labelW;
     const tilePadding = 3;
     const tickH = 4;
-    const stripH = 8;
+    const rowH = 6;
+    const rowGap = 2;
 
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, pageW, 24, "F");
@@ -319,12 +323,13 @@ export async function GET(
       const segments = getDaySegments(day, isoDate, todayStr);
       const timeline = segmentsToTimeline(segments);
 
-      // Header (day + meta) + hour labels + strip + table header + up to N rows.
+      // Header (day + meta) + hour labels + 3-row bars + table header + up to N rows.
       const maxRows = 8;
       const rowCount = Math.min(maxRows, timeline.length);
       const tableRowH = 4.2;
       const tableH = 5.5 + rowCount * tableRowH + 2;
-      const tileContentH = 10 + 6 + tickH + stripH + 2 + tableH + 4;
+      const barsH = 3 * rowH + 2 * rowGap;
+      const tileContentH = 10 + 6 + tickH + 1 + barsH + 2 + tableH + 4;
       const tileH = tileContentH + tilePadding * 2;
       doc.setDrawColor(200, 200, 200);
       doc.setFillColor(...GREY_LIGHT);
@@ -370,60 +375,71 @@ export async function GET(
       }
       y += tickH + 1;
 
-      // Timeline strip (visual-first record)
-      // Background hour banding for easier reading when printed.
-      for (let h = 0; h < 24; h++) {
-        const x = barLeft + (h / 24) * barW;
-        const w = barW / 24;
-        const isAlt = h % 2 === 0;
-        doc.setFillColor(isAlt ? 246 : 238, 246, 246);
-        doc.rect(x, y, w, stripH, "F");
-      }
-      // Hour grid lines (stronger on 2-hour marks)
-      for (let h = 0; h <= 24; h++) {
-        const x = barLeft + (h / 24) * barW;
-        const strong = h % 2 === 0;
-        doc.setDrawColor(strong ? 190 : 215, strong ? 190 : 215, strong ? 190 : 215);
-        doc.setLineWidth(strong ? 0.25 : 0.1);
-        doc.line(x, y, x, y + stripH);
-      }
-      // Segments
-      doc.setLineWidth(0.25);
-      timeline.forEach((seg) => {
-        const left = (seg.startMin / TOTAL_MIN) * barW;
-        const w = Math.max(0.6, ((seg.endMin - seg.startMin) / TOTAL_MIN) * barW);
-        const fill = segmentFill(seg.type);
-        doc.setFillColor(...fill);
-        doc.rect(barLeft + left, y, w, stripH, "F");
-        // Add a simple hatch for breaks for better grayscale readability.
-        if (seg.type === "break") {
-          doc.setDrawColor(85, 85, 85);
-          doc.setLineWidth(0.1);
-          const x0 = barLeft + left;
-          const x1 = x0 + w;
-          for (let lx = x0 - stripH; lx < x1 + stripH; lx += 2.2) {
-            doc.line(lx, y + stripH, lx + stripH, y);
-          }
-        }
-      });
-      doc.setDrawColor(170, 170, 170);
-      doc.setLineWidth(0.35);
-      doc.rect(barLeft, y, barW, stripH, "S");
-      y += stripH + 2;
+      // 3-row time bars (original style, higher contrast)
+      const rowsCfg = [
+        { label: ROW_LABELS[0], segs: segments.work_time, fill: GREY_WORK },
+        { label: ROW_LABELS[1], segs: segments.breaks, fill: GREY_BREAK, hatch: true },
+        { label: ROW_LABELS[2], segs: segments.non_work, fill: GREY_NON_WORK },
+      ] as const;
 
-      // Totals (small but clear)
-      const totalWork = getTotalMinutes(segments.work_time);
-      const totalBreak = getTotalMinutes(segments.breaks);
-      const totalRest = getTotalMinutes(segments.non_work);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(...GREY_TEXT);
-      doc.text(
-        `Work: ${formatHours(totalWork)}   Break: ${formatHours(totalBreak)}   Rest: ${formatHours(totalRest)}`,
-        margin + 2,
-        y + 3.5
-      );
-      y += 6;
+      rowsCfg.forEach((r, ri) => {
+        const totalMins = getTotalMinutes(r.segs);
+
+        // Row label
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...GREY_TEXT);
+        doc.text(r.label, margin + labelW - 1, y + rowH * 0.7, { align: "right" });
+
+        // Background with hour banding
+        for (let h = 0; h < 24; h++) {
+          const x = barLeft + (h / 24) * barW;
+          const w = barW / 24;
+          const isAlt = h % 2 === 0;
+          doc.setFillColor(isAlt ? 250 : 238, isAlt ? 250 : 238, isAlt ? 250 : 238);
+          doc.rect(x, y, w, rowH, "F");
+        }
+
+        // Hour grid lines (strong on 2-hour, light on 1-hour)
+        for (let h = 0; h <= 24; h++) {
+          const x = barLeft + (h / 24) * barW;
+          const strong = h % 2 === 0;
+          doc.setDrawColor(strong ? 160 : 205, strong ? 160 : 205, strong ? 160 : 205);
+          doc.setLineWidth(strong ? 0.25 : 0.12);
+          doc.line(x, y, x, y + rowH);
+        }
+
+        // Segments fill
+        doc.setLineWidth(0.2);
+        r.segs.forEach((seg) => {
+          const left = (seg.startMin / TOTAL_MIN) * barW;
+          const w = Math.max(0.7, ((seg.endMin - seg.startMin) / TOTAL_MIN) * barW);
+          doc.setFillColor(...r.fill);
+          doc.rect(barLeft + left, y, w, rowH, "F");
+          if ("hatch" in r && r.hatch) {
+            doc.setDrawColor(60, 60, 60);
+            doc.setLineWidth(0.1);
+            const x0 = barLeft + left;
+            const x1 = x0 + w;
+            for (let lx = x0 - rowH; lx < x1 + rowH; lx += 2.4) {
+              doc.line(lx, y + rowH, lx + rowH, y);
+            }
+          }
+        });
+
+        // Strong outline
+        doc.setDrawColor(120, 120, 120);
+        doc.setLineWidth(0.35);
+        doc.rect(barLeft, y, barW, rowH, "S");
+
+        // Subtotal at right
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...GREY_TEXT);
+        doc.text(formatHours(totalMins), barLeft + barW + 2, y + rowH * 0.7);
+
+        y += rowH + (ri === 2 ? 2 : rowGap);
+      });
 
       // Segment list table (audit-proof detail)
       const tableLeft = margin + 2;
