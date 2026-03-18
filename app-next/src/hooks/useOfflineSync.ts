@@ -7,7 +7,7 @@ import { runSync, isOnline, getPendingCount } from "@/lib/offline-api";
 /** Runs sync when online; exposes online status and pending count for UI. */
 export function useOfflineSync() {
   const queryClient = useQueryClient();
-  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [online, setOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
 
   const probeOnline = async (): Promise<boolean> => {

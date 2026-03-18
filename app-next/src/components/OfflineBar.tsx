@@ -5,7 +5,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 export function OfflineBar() {
   const { online, pendingCount } = useOfflineSync();
 
-  if (online && pendingCount === 0) return null;
+  if (pendingCount === 0) return null;
 
   return (
     <div
@@ -13,11 +13,7 @@ export function OfflineBar() {
       role="status"
       aria-live="polite"
     >
-      {!online ? (
-        <span>Offline — changes saved locally and will sync when you’re back online.</span>
-      ) : (
-        <span>Syncing {pendingCount} change{pendingCount !== 1 ? "s" : ""}…</span>
-      )}
+      <span>Syncing {pendingCount} change{pendingCount !== 1 ? "s" : ""}…</span>
     </div>
   );
 }
