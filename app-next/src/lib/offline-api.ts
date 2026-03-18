@@ -25,7 +25,6 @@ export { isOnline };
 
 /** Try to run sync (process pending queue). Call when online. Returns list of synced ids and any error. */
 export async function runSync(): Promise<{ synced: number; error?: string; replacedTempId?: { tempId: string; realId: string } }> {
-  if (!isOnline()) return { synced: 0 };
   const pending = await offlineGetPending();
   let synced = 0;
   let replacedTempId: { tempId: string; realId: string } | undefined;
@@ -120,13 +119,8 @@ export async function updateSheetOfflineFirst(sheetId: string, data: Partial<Fat
   const isLocalTemp = sheetId.startsWith("local-");
   if (!isLocalTemp) await offlineEnqueue({ type: "update", sheetId, data });
 
-  if (isOnline() && !isLocalTemp) {
-    const result = await runSync();
-    if (result.synced > 0) {
-      const updated = await offlineGetSheet(sheetId);
-      if (updated) return updated;
-    }
-  }
+  // Try sync opportunistically; some devices misreport navigator.onLine.
+  if (!isLocalTemp) await runSync().catch(() => {});
   return merged;
 }
 

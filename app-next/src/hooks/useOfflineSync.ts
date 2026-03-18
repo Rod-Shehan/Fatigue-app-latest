@@ -20,7 +20,6 @@ export function useOfflineSync() {
   };
 
   const doSync = async () => {
-    if (!isOnline()) return;
     const result = await runSync();
     if (result.replacedTempId) {
       const { tempId, realId } = result.replacedTempId;
@@ -69,6 +68,7 @@ export function useOfflineSync() {
       const navOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
       if (navOnline) {
         setOnline(true);
+        doSync().catch(() => {});
         return;
       }
       // If browser claims offline, verify with a HEAD request.
