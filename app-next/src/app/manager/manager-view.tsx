@@ -86,13 +86,11 @@ export function ManagerView() {
   const [filterOnlyViolations, setFilterOnlyViolations] = useState(false);
   const [filterOnlyWarnings, setFilterOnlyWarnings] = useState(false);
   const [filterOnlyIncomplete, setFilterOnlyIncomplete] = useState(false);
-  const [expandedDrivers, setExpandedDrivers] = useState<Record<string, boolean>>({});
 
   const [editWeekStarting, setEditWeekStarting] = useState<string>("");
   const [editDayIndex, setEditDayIndex] = useState<number>(new Date().getDay());
   const [editDriverSearch, setEditDriverSearch] = useState("");
   const [editRegoSearch, setEditRegoSearch] = useState("");
-  const [expandedEditDrivers, setExpandedEditDrivers] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     try {
@@ -145,184 +143,6 @@ export function ManagerView() {
     enabled: !!selectedSheetId,
   });
 
-  const { data: complianceOversight, isLoading: oversightLoading } = useQuery({
-    queryKey: ["manager", "compliance"],
-    queryFn: () => api.manager.compliance(),
-    refetchOnWindowFocus: true,
-  });
-  const oversightItems: ManagerComplianceItem[] = complianceOversight?.items ?? [];
-  const itemsWithIssues = oversightItems.filter((i) => i.results.length > 0);
-
-  const oversightBySheetId = useMemo(() => {
-    const map = new Map<string, ManagerComplianceItem>();
-    for (const item of oversightItems) map.set(item.sheetId, item);
-    return map;
-  }, [oversightItems]);
-
-  const sheetsForActiveWeek = useMemo(() => {
-    const base = activeWeekStarting ? sheets.filter((s) => s.week_starting === activeWeekStarting) : sheets;
-    return [...base].sort((a, b) => (a.driver_name || "").localeCompare(b.driver_name || "") || a.id.localeCompare(b.id));
-  }, [sheets, activeWeekStarting]);
-
-  const sheetsForEditWeek = useMemo(() => {
-    const base = editWeekStarting ? sheets.filter((s) => s.week_starting === editWeekStarting) : sheets;
-    return [...base].sort((a, b) => (a.driver_name || "").localeCompare(b.driver_name || "") || a.id.localeCompare(b.id));
-  }, [sheets, editWeekStarting]);
-
-  const editPicker = useMemo(() => {
-    const dayLabel = DAY_LABELS[editDayIndex] ?? "Sun";
-    const normalizedSearch = editDriverSearch.trim().toLowerCase();
-    const normalizedRego = editRegoSearch.trim().toLowerCase();
-
-    const rows = sheetsForEditWeek
-      .map((s) => {
-        const oversight = oversightBySheetId.get(s.id);
-        // Use day selection to narrow to sheets with compliance activity on that day,
-        // but still allow editing any sheet via the dropdown below.
-        const dayResults = (oversight?.results ?? []).filter((r) => r.day === dayLabel);
-        const hasDaySignals = dayResults.length > 0;
-        const isIncomplete = (s.status ?? "").toLowerCase() !== "completed";
-        const dayRego = (s.days?.[editDayIndex]?.truck_rego ?? "").toString().trim();
-        return { sheet: s, oversight, hasDaySignals, isIncomplete, dayRego };
-      })
-      .filter((r) => {
-        if (normalizedSearch && !(r.sheet.driver_name || "").toLowerCase().includes(normalizedSearch)) return false;
-        if (normalizedRego && !r.dayRego.toLowerCase().includes(normalizedRego)) return false;
-        // If there are compliance signals for the day, surface those first; otherwise show all.
-        return true;
-      })
-      .sort((a, b) => {
-        if (a.hasDaySignals !== b.hasDaySignals) return a.hasDaySignals ? -1 : 1;
-        if (a.isIncomplete !== b.isIncomplete) return a.isIncomplete ? -1 : 1;
-        return (a.sheet.driver_name || "").localeCompare(b.sheet.driver_name || "") || a.sheet.id.localeCompare(b.sheet.id);
-      });
-
-    const drivers = new Map<string, { driver: string; rows: typeof rows; totals: { sheets: number; incomplete: number; withSignals: number } }>();
-    for (const r of rows) {
-      const driver = r.sheet.driver_name || "Unnamed driver";
-      const entry = drivers.get(driver) ?? { driver, rows: [], totals: { sheets: 0, incomplete: 0, withSignals: 0 } };
-      entry.rows.push(r);
-      entry.totals.sheets += 1;
-      if (r.isIncomplete) entry.totals.incomplete += 1;
-      if (r.hasDaySignals) entry.totals.withSignals += 1;
-      drivers.set(driver, entry);
-    }
-
-    const driverGroups = [...drivers.values()].sort((a, b) => {
-      if (a.totals.withSignals !== b.totals.withSignals) return b.totals.withSignals - a.totals.withSignals;
-      if (a.totals.incomplete !== b.totals.incomplete) return b.totals.incomplete - a.totals.incomplete;
-      return a.driver.localeCompare(b.driver);
-    });
-
-    const summary = driverGroups.reduce(
-      (acc, g) => {
-        acc.drivers += 1;
-        acc.sheets += g.totals.sheets;
-        acc.incomplete += g.totals.incomplete;
-        acc.withSignals += g.totals.withSignals;
-        return acc;
-      },
-      { drivers: 0, sheets: 0, incomplete: 0, withSignals: 0 }
-    );
-
-    return { dayLabel, driverGroups, summary };
-  }, [sheetsForEditWeek, oversightBySheetId, editDayIndex, editDriverSearch, editRegoSearch]);
-
-  useEffect(() => {
-    const next: Record<string, boolean> = {};
-    for (const g of editPicker.driverGroups) {
-      next[g.driver] = g.totals.withSignals > 0;
-    }
-    setExpandedEditDrivers(next);
-  }, [editPicker.dayLabel, editWeekStarting]);
-
-  const dayBucket = useMemo(() => {
-    const dayLabel = DAY_LABELS[activeDayIndex] ?? "Sun";
-    const normalizedSearch = driverSearch.trim().toLowerCase();
-    const normalizedRego = regoSearch.trim().toLowerCase();
-
-    const rows = sheetsForActiveWeek
-      .map((s) => {
-        const oversight = oversightBySheetId.get(s.id);
-        const dayResults = (oversight?.results ?? []).filter((r) => r.day === dayLabel);
-        const violations = dayResults.filter((r) => r.type === "violation").length;
-        const warnings = dayResults.filter((r) => r.type === "warning").length;
-        const isIncomplete = (s.status ?? "").toLowerCase() !== "completed";
-        const dayRego = (s.days?.[activeDayIndex]?.truck_rego ?? "").toString().trim();
-        return { sheet: s, oversight, dayResults, violations, warnings, isIncomplete, dayRego };
-      })
-      .filter((r) => {
-        if (normalizedSearch && !(r.sheet.driver_name || "").toLowerCase().includes(normalizedSearch)) return false;
-        if (normalizedRego && !r.dayRego.toLowerCase().includes(normalizedRego)) return false;
-        if (filterOnlyIncomplete && !r.isIncomplete) return false;
-        if (filterOnlyViolations && r.violations === 0) return false;
-        if (filterOnlyWarnings && r.warnings === 0) return false;
-        return true;
-      });
-
-    const drivers = new Map<
-      string,
-      {
-        driver: string;
-        rows: typeof rows;
-        totals: { violations: number; warnings: number; sheets: number; incomplete: number };
-      }
-    >();
-    for (const r of rows) {
-      const driver = r.sheet.driver_name || "Unnamed driver";
-      const entry = drivers.get(driver) ?? {
-        driver,
-        rows: [],
-        totals: { violations: 0, warnings: 0, sheets: 0, incomplete: 0 },
-      };
-      entry.rows.push(r);
-      entry.totals.sheets += 1;
-      entry.totals.violations += r.violations;
-      entry.totals.warnings += r.warnings;
-      if (r.isIncomplete) entry.totals.incomplete += 1;
-      drivers.set(driver, entry);
-    }
-
-    const driverGroups = [...drivers.values()].sort((a, b) => {
-      const aIssue = a.totals.violations + a.totals.warnings;
-      const bIssue = b.totals.violations + b.totals.warnings;
-      if (aIssue !== bIssue) return bIssue - aIssue;
-      return a.driver.localeCompare(b.driver);
-    });
-
-    const summary = driverGroups.reduce(
-      (acc, g) => {
-        acc.drivers += 1;
-        acc.sheets += g.totals.sheets;
-        acc.violations += g.totals.violations;
-        acc.warnings += g.totals.warnings;
-        acc.incomplete += g.totals.incomplete;
-        return acc;
-      },
-      { drivers: 0, sheets: 0, violations: 0, warnings: 0, incomplete: 0 }
-    );
-
-    return { dayLabel, driverGroups, summary };
-  }, [
-    sheetsForActiveWeek,
-    oversightBySheetId,
-    activeDayIndex,
-    driverSearch,
-    regoSearch,
-    filterOnlyIncomplete,
-    filterOnlyViolations,
-    filterOnlyWarnings,
-  ]);
-
-  useEffect(() => {
-    const next: Record<string, boolean> = {};
-    for (const g of dayBucket.driverGroups) {
-      const hasIssues = g.totals.violations + g.totals.warnings > 0;
-      next[g.driver] = hasIssues;
-    }
-    setExpandedDrivers(next);
-  }, [dayBucket.dayLabel, activeWeekStarting, filterOnlyIncomplete, filterOnlyViolations, filterOnlyWarnings]);
-
   useEffect(() => {
     if (!selectedSheet || selectedSheet.id !== selectedSheetId) return;
     setForm({
@@ -334,6 +154,16 @@ export function ManagerView() {
       second_driver: selectedSheet.second_driver ?? "",
     });
   }, [selectedSheet, selectedSheetId]);
+
+  // The dashboard compliance tile shows only the search/menu controls.
+  // Keep minimal placeholders so the JSX can compile without the heavy computed lists.
+  const expandedDrivers: Record<string, boolean> = {};
+  const dayBucket: any = {
+    dayLabel: DAY_LABELS[activeDayIndex] ?? "Sun",
+    driverGroups: [],
+    summary: { sheets: 0, drivers: 0, violations: 0, warnings: 0, incomplete: 0 },
+  };
+  const setExpandedDrivers = (_updater: any) => {};
 
   const saveMutation = useMutation({
     mutationFn: (payload: SheetUpdatePayload) =>
@@ -442,8 +272,8 @@ export function ManagerView() {
           </Link>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+        <div className="flex flex-col space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 order-2">
             <div className="flex items-center gap-2 mb-4">
               <FileEdit className="w-5 h-5 text-slate-500 dark:text-slate-400" />
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -523,95 +353,6 @@ export function ManagerView() {
                     </Button>
                   );
                 })}
-              </div>
-
-              <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span>
-                    {editPicker.dayLabel}: {editPicker.summary.sheets} sheets across {editPicker.summary.drivers} drivers
-                  </span>
-                  <span className="flex gap-3">
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">
-                      {editPicker.summary.incomplete} incomplete
-                    </span>
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">
-                      {editPicker.summary.withSignals} with day flags
-                    </span>
-                  </span>
-                </div>
-
-                {editPicker.driverGroups.length === 0 ? (
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
-                    No matching drivers for this week/day. Try clearing the driver search.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {editPicker.driverGroups.map((g) => {
-                      const isOpen = expandedEditDrivers[g.driver] ?? false;
-                      return (
-                        <div key={g.driver} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedEditDrivers((s) => ({ ...s, [g.driver]: !(s[g.driver] ?? false) }))}
-                            className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
-                          >
-                            <div className="text-left">
-                              <p className="font-semibold text-slate-900 dark:text-slate-100">{g.driver}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {g.totals.sheets} sheet{g.totals.sheets === 1 ? "" : "s"}
-                                {g.totals.incomplete ? ` • ${g.totals.incomplete} incomplete` : ""}
-                              </p>
-                            </div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
-                              {isOpen ? "Hide" : "Show"}
-                            </div>
-                          </button>
-                          {isOpen && (
-                            <div className="px-4 pb-4 space-y-2">
-                              {g.rows.map((r) => {
-                                const isSelected = r.sheet.id === selectedSheetId;
-                                const status = (r.sheet.status ?? "").toLowerCase();
-                                const statusLabel =
-                                  status === "completed"
-                                    ? "Completed"
-                                    : status
-                                      ? status[0].toUpperCase() + status.slice(1)
-                                      : "Draft";
-                                return (
-                                  <button
-                                    key={r.sheet.id}
-                                    type="button"
-                                    onClick={() => setSelectedSheetId(r.sheet.id)}
-                                    className={[
-                                      "w-full text-left rounded-lg border px-3 py-2 transition",
-                                      isSelected
-                                        ? "border-slate-900 dark:border-slate-100 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-800 dark:text-slate-200",
-                                    ].join(" ")}
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-sm font-semibold">
-                                        {statusLabel}
-                                      </span>
-                                      {r.hasDaySignals ? (
-                                        <span className={isSelected ? "text-xs opacity-90" : "text-xs text-amber-600 dark:text-amber-300 font-semibold"}>
-                                          Has day items
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    <div className={isSelected ? "text-xs opacity-90" : "text-xs text-slate-500 dark:text-slate-400"}>
-                                      Week of {formatWeekLabel(r.sheet.week_starting)}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
               <div className="space-y-1.5">
@@ -880,7 +621,7 @@ export function ManagerView() {
             </DialogContent>
           </Dialog>
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 order-1">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-slate-500 dark:text-slate-400" />
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -890,13 +631,7 @@ export function ManagerView() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Review a work week by day. Use filters to focus on non-compliant or incomplete sheets, then open a sheet to edit.
             </p>
-            {oversightLoading ? (
-              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                <Loader2 className="w-5 h-5 text-slate-500 dark:text-slate-400 shrink-0 animate-spin" />
-                <span className="text-sm text-slate-600 dark:text-slate-300">Loading compliance…</span>
-              </div>
-            ) : (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="flex flex-wrap gap-3 items-end justify-between">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
@@ -996,7 +731,7 @@ export function ManagerView() {
                   })}
                 </div>
 
-                {sheets.length === 0 ? (
+                {false && (sheets.length === 0 ? (
                   <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                     <AlertTriangle className="w-5 h-5 text-slate-500 dark:text-slate-400 shrink-0" />
                     <div>
@@ -1035,7 +770,7 @@ export function ManagerView() {
                       </span>
                     </div>
 
-                    {dayBucket.driverGroups.map((g) => {
+                    {dayBucket.driverGroups.map((g: any) => {
                       const isOpen = expandedDrivers[g.driver] ?? false;
                       const issues = g.totals.violations + g.totals.warnings;
                       return (
@@ -1046,7 +781,7 @@ export function ManagerView() {
                           <button
                             type="button"
                             onClick={() =>
-                              setExpandedDrivers((s) => ({ ...s, [g.driver]: !(s[g.driver] ?? false) }))
+                              setExpandedDrivers((s: any) => ({ ...s, [g.driver]: !(s[g.driver] ?? false) }))
                             }
                             className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                           >
@@ -1077,7 +812,7 @@ export function ManagerView() {
 
                           {isOpen && (
                             <div className="p-4 space-y-3 bg-white dark:bg-slate-900">
-                              {g.rows.map((r) => {
+                              {g.rows.map((r: any) => {
                                 const status = (r.sheet.status ?? "").toLowerCase();
                                 const statusLabel =
                                   status === "completed"
@@ -1128,7 +863,7 @@ export function ManagerView() {
 
                                     {(r.dayResults?.length ?? 0) > 0 && (
                                       <div className="mt-3 space-y-1.5">
-                                        {r.dayResults.map((res, idx) => {
+                                        {r.dayResults.map((res: any, idx: number) => {
                                           const Icon = COMPLIANCE_ICON_MAP[res.iconKey as keyof typeof COMPLIANCE_ICON_MAP];
                                           const isViolation = res.type === "violation";
                                           const bg = isViolation
@@ -1158,9 +893,8 @@ export function ManagerView() {
                       );
                     })}
                   </div>
-                )}
+                ))}
               </div>
-            )}
           </div>
         </div>
       </div>
