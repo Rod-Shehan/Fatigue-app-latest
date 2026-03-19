@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -10,7 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Truck, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Truck, MapPin, Clock, Trash2 } from "lucide-react";
 import TimeGrid from "./TimeGrid";
 import { motion } from "framer-motion";
 import type { Rego } from "@/lib/api";
@@ -30,6 +32,18 @@ type DayData = {
   date?: string;
 };
 
+function isoToHHMM(iso: string): string {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function hhmmToIsoOnDate(dayYmd: string, hhmm: string): string {
+  const candidate = new Date(`${dayYmd}T${hhmm}:00`);
+  return candidate.toISOString();
+}
+
 export default function DayEntry({
   dayIndex,
   dayData,
@@ -37,6 +51,7 @@ export default function DayEntry({
   weekStart,
   regos = [],
   readOnly = false,
+  canEditTimes = false,
   /** YYYY-MM-DD for "today" from parent (recomputed when clock ticks) so highlight is always correct on load. */
   todayYmd,
 }: {
@@ -46,6 +61,7 @@ export default function DayEntry({
   weekStart: string;
   regos?: Rego[];
   readOnly?: boolean;
+  canEditTimes?: boolean;
   todayYmd: string;
 }) {
   const handleFieldChange = (field: string, value: unknown) => {
@@ -65,6 +81,16 @@ export default function DayEntry({
 
   const sheetDayYmd = weekStart ? getSheetDayDateString(weekStart, dayIndex) : todayYmd;
   const isToday = sheetDayYmd === todayYmd;
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [draftEvents, setDraftEvents] = useState<Array<{ type: string; time: string; driver?: "primary" | "second" }>>([]);
+
+  const events = useMemo(() => {
+    const base = (dayData.events ?? []).filter((e) => e && typeof e.time === "string" && typeof e.type === "string");
+    return [...base].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  }, [dayData.events]);
+
+  const canShowEditTimes = canEditTimes && !readOnly;
 
   return (
     <motion.div
@@ -102,6 +128,22 @@ export default function DayEntry({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 ml-auto">
+          {canShowEditTimes ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 gap-1.5 text-xs"
+              onClick={() => {
+                setDraftEvents(events.map((e) => ({ ...e })));
+                setEditOpen(true);
+              }}
+              title="Edit logged event times"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Edit times
+            </Button>
+          ) : null}
           <div className="flex items-center gap-1.5">
             <Truck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
             <Select
@@ -160,6 +202,76 @@ export default function DayEntry({
         </div>
       </div>
       <TimeGrid dayData={{ ...dayData, date: getISODate() }} />
+
+      {canShowEditTimes ? (
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit event times</DialogTitle>
+              <DialogDescription>
+                Adjust the logged timestamps for this day. Times are saved onto this sheet and will affect compliance calculations.
+              </DialogDescription>
+            </DialogHeader>
+
+            {draftEvents.length === 0 ? (
+              <div className="text-sm text-slate-600 dark:text-slate-300">No events logged for this day yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {draftEvents.map((ev, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      {ev.type}
+                      {ev.driver ? ` (${ev.driver})` : ""}
+                    </span>
+                    <Input
+                      type="time"
+                      value={isoToHHMM(ev.time)}
+                      onChange={(e) => {
+                        const hhmm = e.target.value;
+                        setDraftEvents((prev) => {
+                          const next = [...prev];
+                          next[i] = { ...next[i]!, time: hhmmToIsoOnDate(sheetDayYmd, hhmm) };
+                          return next;
+                        });
+                      }}
+                      className="h-8 w-32 font-mono"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      onClick={() => setDraftEvents((prev) => prev.filter((_, idx) => idx !== i))}
+                      title="Delete event"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={draftEvents.length === 0}
+                onClick={() => {
+                  const normalized = [...draftEvents].sort(
+                    (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+                  );
+                  onUpdate(dayIndex, { ...dayData, events: normalized });
+                  setEditOpen(false);
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </motion.div>
   );
 }

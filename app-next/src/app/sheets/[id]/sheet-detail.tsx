@@ -787,6 +787,7 @@ export function SheetDetail({
                     onUpdate={handleDayUpdate}
                     weekStart={sheetData.week_starting}
                     regos={regos}
+                    canEditTimes={canAccessManager && sheetData.status !== "completed"}
                     todayYmd={todayYmd}
                   />
                 </div>
