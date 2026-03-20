@@ -32,6 +32,7 @@ import {
   LogOut,
   MessageSquare,
   XCircle,
+  Calendar,
 } from "lucide-react";
 import {
   ManagerMonthCalendar,
@@ -426,16 +427,21 @@ export function ManagerView() {
           className="mb-5 rounded-2xl border-2 border-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-4 shadow-sm shadow-violet-200/50 dark:border-violet-500/45 dark:from-violet-950/50 dark:via-slate-900 dark:to-sky-950/40 dark:shadow-violet-900/20 sm:p-5"
           aria-label="Violations this work week"
         >
-          <div className="mb-3 flex flex-wrap items-center gap-2 gap-y-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <XCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
-              <h2 className="text-sm font-bold tracking-tight text-violet-900 dark:text-violet-200">
-                This week — violations
-              </h2>
+          <div className="mb-4 border-b border-violet-300/70 pb-4 dark:border-violet-700/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-400">
+              Compliance snapshot
+            </p>
+            <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
+                <h2 className="text-lg font-bold tracking-tight text-violet-950 dark:text-violet-100">
+                  This week — violations
+                </h2>
+              </div>
+              <span className="text-sm font-medium tabular-nums text-violet-800 dark:text-violet-300">
+                {formatWeekLabel(weekForSnapshot)}
+              </span>
             </div>
-            <span className="text-xs font-medium text-violet-800/90 dark:text-violet-300/90">
-              {formatWeekLabel(weekForSnapshot)}
-            </span>
           </div>
 
           {complianceLoading ? (
@@ -475,44 +481,62 @@ export function ManagerView() {
           )}
         </section>
 
-        <div
-          role="tablist"
-          aria-label="Manager workbench"
-          className="flex flex-wrap gap-2 mb-5"
-        >
-          <Button
-            type="button"
-            role="tab"
-            aria-selected={managerTab === "compliance"}
-            variant={managerTab === "compliance" ? "default" : "outline"}
-            size="sm"
-            className={
-              managerTab === "compliance"
-                ? "gap-2"
-                : "gap-2 text-slate-600 dark:text-slate-300"
-            }
-            onClick={() => setManagerTab("compliance")}
-          >
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            Compliance oversight
-          </Button>
-          <Button
-            type="button"
-            role="tab"
-            aria-selected={managerTab === "edit"}
-            variant={managerTab === "edit" ? "default" : "outline"}
-            size="sm"
-            className={
-              managerTab === "edit" ? "gap-2" : "gap-2 text-slate-600 dark:text-slate-300"
-            }
-            onClick={() => setManagerTab("edit")}
-          >
-            <FileEdit className="w-4 h-4 shrink-0" />
-            Edit sheet inputs
-          </Button>
-        </div>
+        <div className="overflow-hidden rounded-2xl border-2 border-violet-300/70 bg-white shadow-sm shadow-violet-200/50 dark:border-violet-500/45 dark:bg-slate-900 dark:shadow-violet-900/20">
+          <div className="border-b border-violet-200/80 bg-gradient-to-r from-violet-50/90 via-white to-sky-50/50 px-4 py-4 dark:border-violet-800/50 dark:from-violet-950/40 dark:via-slate-900 dark:to-sky-950/30 sm:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" aria-hidden />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-400">
+                    Manager workbench
+                  </p>
+                  <h2 className="text-lg font-bold tracking-tight text-violet-950 dark:text-violet-100">
+                    Week review &amp; sheets
+                  </h2>
+                </div>
+              </div>
+              <div
+                role="tablist"
+                aria-label="Manager workbench"
+                className="flex flex-shrink-0 flex-wrap gap-2"
+              >
+                <Button
+                  type="button"
+                  role="tab"
+                  aria-selected={managerTab === "compliance"}
+                  variant={managerTab === "compliance" ? "default" : "outline"}
+                  size="sm"
+                  className={
+                    managerTab === "compliance"
+                      ? "gap-2"
+                      : "gap-2 border-violet-300/80 bg-white/80 text-slate-700 hover:bg-violet-50 dark:border-violet-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-violet-950/50"
+                  }
+                  onClick={() => setManagerTab("compliance")}
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Compliance oversight
+                </Button>
+                <Button
+                  type="button"
+                  role="tab"
+                  aria-selected={managerTab === "edit"}
+                  variant={managerTab === "edit" ? "default" : "outline"}
+                  size="sm"
+                  className={
+                    managerTab === "edit"
+                      ? "gap-2"
+                      : "gap-2 border-violet-300/80 bg-white/80 text-slate-700 hover:bg-violet-50 dark:border-violet-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-violet-950/50"
+                  }
+                  onClick={() => setManagerTab("edit")}
+                >
+                  <FileEdit className="h-4 w-4 shrink-0" />
+                  Edit sheet inputs
+                </Button>
+              </div>
+            </div>
+          </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+          <div className="p-6 pt-5">
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             {managerTab === "compliance"
               ? "Review a work week by day. Use filters to focus on non-compliant or incomplete sheets, then switch to Edit sheet to open or amend a sheet."
@@ -956,6 +980,7 @@ export function ManagerView() {
               )}
             </div>
             )}
+          </div>
           </div>
         </div>
 
