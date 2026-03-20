@@ -291,7 +291,6 @@ export function MessagesView() {
                 <Button
                   type="button"
                   variant={newKind === "training" ? "default" : "outline"}
-                  className="rounded-full"
                   onClick={() => setNewKind("training")}
                 >
                   Training question
@@ -299,7 +298,6 @@ export function MessagesView() {
                 <Button
                   type="button"
                   variant={newKind === "edit" ? "default" : "outline"}
-                  className="rounded-full"
                   onClick={() => setNewKind("edit")}
                 >
                   Request sheet edit

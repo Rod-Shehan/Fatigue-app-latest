@@ -95,7 +95,7 @@ export function ManagerMonthCalendar({
           type="button"
           variant="ghost"
           size="icon"
-          className="shrink-0 h-9 w-9 rounded-full text-violet-700 hover:bg-violet-200/60 dark:text-violet-300 dark:hover:bg-violet-800/40"
+          className="shrink-0 h-9 w-9 rounded-md text-violet-700 hover:bg-violet-200/60 dark:text-violet-300 dark:hover:bg-violet-800/40"
           onClick={onViewPrev}
           aria-label="Previous month"
         >
@@ -108,7 +108,7 @@ export function ManagerMonthCalendar({
           type="button"
           variant="ghost"
           size="icon"
-          className="shrink-0 h-9 w-9 rounded-full text-violet-700 hover:bg-violet-200/60 dark:text-violet-300 dark:hover:bg-violet-800/40"
+          className="shrink-0 h-9 w-9 rounded-md text-violet-700 hover:bg-violet-200/60 dark:text-violet-300 dark:hover:bg-violet-800/40"
           onClick={onViewNext}
           aria-label="Next month"
         >
@@ -153,7 +153,7 @@ export function ManagerMonthCalendar({
                 onSelectDate(toYMD(sun), date.getDay());
               }}
               className={[
-                "relative min-h-[2.25rem] sm:min-h-[2.5rem] rounded-xl text-sm font-semibold transition-all duration-150",
+                "relative min-h-[2.25rem] sm:min-h-[2.5rem] rounded-md text-sm font-semibold transition-all duration-150",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900",
                 isSelected
                   ? [

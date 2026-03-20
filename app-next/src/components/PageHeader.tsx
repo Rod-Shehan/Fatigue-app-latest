@@ -48,7 +48,7 @@ export function PageHeader({
         {backHref != null ? (
           <Link
             href={backHref}
-            className="flex shrink-0 rounded-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+            className="flex shrink-0 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
             aria-label={backLabel}
             title={backLabel}
           >
@@ -72,7 +72,7 @@ export function PageHeader({
               </h1>
               {roleLabel && (
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 max-w-[min(200px,45vw)] truncate ${
+                  className={`shrink-0 rounded-md px-2 py-0.5 max-w-[min(200px,45vw)] truncate ${
                     isManagerBadge
                       ? "text-[10px] font-extrabold uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200"
                       : "text-[11px] font-semibold tracking-tight bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"

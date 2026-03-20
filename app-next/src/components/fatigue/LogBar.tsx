@@ -445,7 +445,7 @@ export default function LogBar({
             <span className="uppercase tracking-wider font-semibold">Driver</span>
             <button
               type="button"
-              className={`px-1.5 py-0.5 rounded-full border text-[11px] font-medium ${
+              className={`px-1.5 py-0.5 rounded-md border text-[11px] font-medium ${
                 activeDriver === "primary"
                   ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
                   : "bg-transparent text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600"
@@ -456,7 +456,7 @@ export default function LogBar({
             </button>
             <button
               type="button"
-              className={`px-1.5 py-0.5 rounded-full border text-[11px] font-medium ${
+              className={`px-1.5 py-0.5 rounded-md border text-[11px] font-medium ${
                 activeDriver === "second"
                   ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
                   : "bg-transparent text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600"
@@ -487,7 +487,7 @@ export default function LogBar({
               <button
                 type="button"
                 onClick={() => handleLog(nextWorkBreak)}
-                className={`flex items-center justify-center gap-4 px-10 py-5 rounded-2xl text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] shrink-0 ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
+                className={`flex items-center justify-center gap-4 px-10 py-5 rounded-md text-white text-lg font-bold transition-all duration-150 active:scale-95 shadow-lg min-h-[64px] min-w-[180px] shrink-0 ${theme.button} ${isPending ? "ring-2 ring-white ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800 animate-pulse" : ""}`}
               >
                 {React.createElement(EVENT_ICONS[nextWorkBreak], { className: "w-8 h-8" })}
                 {isPending ? "Tap again to log" : primaryLabel}

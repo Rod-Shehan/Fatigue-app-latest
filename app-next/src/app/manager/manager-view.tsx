@@ -422,7 +422,6 @@ export function ManagerView() {
                     size="sm"
                     variant={filterOnlyViolations ? "default" : "outline"}
                     onClick={() => setFilterOnlyViolations((v) => !v)}
-                    className="rounded-full"
                   >
                     Violations only
                   </Button>
@@ -431,7 +430,6 @@ export function ManagerView() {
                     size="sm"
                     variant={filterOnlyWarnings ? "default" : "outline"}
                     onClick={() => setFilterOnlyWarnings((v) => !v)}
-                    className="rounded-full"
                   >
                     Warnings only
                   </Button>
@@ -440,7 +438,6 @@ export function ManagerView() {
                     size="sm"
                     variant={filterOnlyIncomplete ? "default" : "outline"}
                     onClick={() => setFilterOnlyIncomplete((v) => !v)}
-                    className="rounded-full"
                   >
                     Incomplete only
                   </Button>
@@ -573,7 +570,6 @@ export function ManagerView() {
                           size="sm"
                           variant={form.driver_type === "solo" ? "default" : "outline"}
                           onClick={() => setForm((f) => ({ ...f, driver_type: "solo" }))}
-                          className="rounded-full"
                         >
                           Solo
                         </Button>
@@ -582,7 +578,6 @@ export function ManagerView() {
                           size="sm"
                           variant={form.driver_type === "two_up" ? "default" : "outline"}
                           onClick={() => setForm((f) => ({ ...f, driver_type: "two_up" }))}
-                          className="rounded-full"
                         >
                           Two-Up
                         </Button>
