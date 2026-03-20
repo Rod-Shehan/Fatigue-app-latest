@@ -156,12 +156,21 @@ export function ManagerMonthCalendar({
                 "relative min-h-[2.25rem] sm:min-h-[2.5rem] rounded-xl text-sm font-semibold transition-all duration-150",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900",
                 isSelected
-                  ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/35 scale-[1.02] z-[1]"
+                  ? [
+                      "bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/35 scale-[1.02] z-[1]",
+                      /* crisp edge on gradient in light + dark */
+                      "border-2 border-white/90 dark:border-violet-100/70",
+                      isToday
+                        ? "ring-2 ring-amber-300/95 ring-offset-2 ring-offset-white dark:ring-amber-200/80 dark:ring-offset-slate-900"
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
                   : inActiveWeek
                     ? "bg-violet-200/70 text-violet-950 hover:bg-violet-300/80 dark:bg-violet-500/30 dark:text-violet-50 dark:hover:bg-violet-500/45"
                     : "text-slate-800 dark:text-slate-100 hover:bg-sky-200/70 dark:hover:bg-sky-800/35",
                 isToday && !isSelected
-                  ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                  ? "border-2 border-amber-500/95 dark:border-amber-300/90"
                   : null,
               ]
                 .filter(Boolean)
@@ -175,7 +184,7 @@ export function ManagerMonthCalendar({
       <p className="mt-3 text-[11px] text-violet-700/80 dark:text-violet-300/90 leading-snug">
         <span className="font-semibold text-violet-800 dark:text-violet-200">Tip:</span>{" "}
         <span className="opacity-90">
-          Soft violet = your selected work week; bright cell = active day. Amber ring = today.
+          Soft violet = your selected work week; bright cell = active day (light edge). Amber border = today.
         </span>
       </p>
     </div>
