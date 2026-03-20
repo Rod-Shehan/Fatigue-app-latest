@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Briefcase, Coffee, Moon, Square, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Briefcase, Coffee, Moon, Square, Check, X, Loader2, AlertTriangle } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getEventsInTimeOrder, getInsufficientNonWorkMessage } from "@/lib/rolling-events";
@@ -203,7 +203,7 @@ export default function LogBar({
   primaryDriverName,
   secondDriverName,
   forgottenActionReminder,
-  /** Shown to the right of End shift — jump to compliance panel. */
+  /** Header tint + icon (right side); tap to jump to compliance panel. */
   complianceButton,
 }: {
   days: DayData[];
@@ -234,6 +234,7 @@ export default function LogBar({
   complianceButton?: {
     onClick: () => void;
     hasViolations: boolean;
+    hasWarnings?: boolean;
     loading?: boolean;
   };
 }) {
@@ -284,6 +285,23 @@ export default function LogBar({
     d.setDate(d.getDate() + currentDayIndex);
     return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
   })();
+
+  const complianceTone = (() => {
+    if (!complianceButton) return "default" as const;
+    if (complianceButton.loading) return "default" as const;
+    if (complianceButton.hasViolations) return "violation" as const;
+    if (complianceButton.hasWarnings) return "warning" as const;
+    return "ok" as const;
+  })();
+
+  const headerShellClass =
+    complianceTone === "violation"
+      ? "bg-red-100 dark:bg-red-950/80 border-b border-red-300 dark:border-red-800 shadow-md"
+      : complianceTone === "warning"
+        ? "bg-amber-100 dark:bg-amber-950/70 border-b border-amber-300 dark:border-amber-800 shadow-md"
+        : complianceTone === "ok"
+          ? "bg-emerald-50 dark:bg-emerald-950/55 border-b border-emerald-300 dark:border-emerald-800 shadow-md"
+          : "bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-md";
 
   const clearPending = useCallback(() => {
     if (resetTimerRef.current) {
@@ -514,38 +532,6 @@ export default function LogBar({
               </button>
             );
           })()}
-          {complianceButton && (
-            <button
-              type="button"
-              onClick={complianceButton.onClick}
-              disabled={complianceButton.loading}
-              className={`inline-flex items-center gap-1.5 shrink-0 h-9 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 dark:focus:ring-offset-slate-900 disabled:opacity-60 ${
-                complianceButton.hasViolations
-                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/50"
-                  : "border-emerald-400 dark:border-emerald-500 bg-slate-900 dark:bg-slate-950 text-emerald-200 dark:text-emerald-300 hover:bg-slate-800 dark:hover:bg-slate-900"
-              }`}
-              title={
-                complianceButton.loading
-                  ? "Checking compliance…"
-                  : complianceButton.hasViolations
-                    ? "View compliance — issues found"
-                    : "View compliance — OK"
-              }
-              aria-label={
-                complianceButton.hasViolations ? "Compliance: issues — jump to details" : "Compliance: OK — jump to details"
-              }
-            >
-              {complianceButton.loading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-              ) : complianceButton.hasViolations ? (
-                <XCircle className="w-3.5 h-3.5 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-              )}
-              <span>Compliance</span>
-              <span className="font-medium">{complianceButton.loading ? "…" : complianceButton.hasViolations ? "Issues" : "OK"}</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -613,10 +599,49 @@ export default function LogBar({
       <div className="max-w-[1400px] mx-auto px-4 py-3 invisible pointer-events-none select-none flex items-start gap-3" aria-hidden>
         <div className="flex-1 min-w-0">{barContent}</div>
         <div className="w-9 h-9 shrink-0" />
+        <div className="w-9 h-9 shrink-0" />
       </div>
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-md px-4 py-3">
+      <div
+        className={`fixed top-0 left-0 right-0 z-50 px-4 py-3 transition-colors duration-300 ${headerShellClass}`}
+      >
         <div className="max-w-[1400px] mx-auto flex items-start gap-3">
           <div className="flex-1 min-w-0">{barContent}</div>
+          {complianceButton && (
+            <button
+              type="button"
+              onClick={complianceButton.onClick}
+              disabled={complianceButton.loading}
+              className="shrink-0 flex items-center justify-center h-9 w-9 rounded-md hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-60 disabled:pointer-events-none transition-colors"
+              title={
+                complianceButton.loading
+                  ? "Checking compliance…"
+                  : complianceButton.hasViolations
+                    ? "View compliance — violations"
+                    : complianceButton.hasWarnings
+                      ? "View compliance — warnings"
+                      : "View compliance — all clear"
+              }
+              aria-label={
+                complianceButton.loading
+                  ? "Compliance checking"
+                  : complianceButton.hasViolations
+                    ? "Compliance: violations — jump to details"
+                    : complianceButton.hasWarnings
+                      ? "Compliance: warnings — jump to details"
+                      : "Compliance: OK — jump to details"
+              }
+            >
+              {complianceButton.loading ? (
+                <Loader2 className="w-5 h-5 animate-spin shrink-0 text-slate-600 dark:text-slate-300" aria-hidden />
+              ) : complianceButton.hasViolations ? (
+                <X className="w-5 h-5 shrink-0 text-red-600 dark:text-red-400" strokeWidth={2.5} aria-hidden />
+              ) : complianceButton.hasWarnings ? (
+                <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden />
+              ) : (
+                <Check className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} aria-hidden />
+              )}
+            </button>
+          )}
           <div className="shrink-0 pt-0.5">
             <ThemeToggle />
           </div>

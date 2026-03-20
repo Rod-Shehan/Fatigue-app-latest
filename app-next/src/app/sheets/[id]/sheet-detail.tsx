@@ -336,6 +336,7 @@ export function SheetDetail({
   });
   const complianceResults: ComplianceCheckResult[] = complianceData?.results ?? [];
   const hasComplianceViolations = complianceResults.some((r) => r.type === "violation");
+  const hasComplianceWarnings = complianceResults.some((r) => r.type === "warning");
 
   const prospectiveWorkWarnings = useMemo(() => {
     if (!sheetData.days?.length || sheetData.status === "completed") return [];
@@ -679,6 +680,7 @@ export function SheetDetail({
             complianceButton={{
               onClick: scrollToCompliance,
               hasViolations: hasComplianceViolations,
+              hasWarnings: hasComplianceWarnings,
               loading: complianceLoading,
             }}
           />
