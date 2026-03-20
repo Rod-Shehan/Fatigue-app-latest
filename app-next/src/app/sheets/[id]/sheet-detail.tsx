@@ -10,7 +10,8 @@ import {
   listSheetsOfflineFirst,
   listRegosOfflineFirst,
 } from "@/lib/offline-api";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -30,7 +31,19 @@ import CompliancePanel from "@/components/fatigue/CompliancePanel";
 import SignatureDialog from "@/components/fatigue/SignatureDialog";
 import LogBar from "@/components/fatigue/LogBar";
 import { deriveDaysWithRollover, applyLast24hBreakNonWorkRule } from "@/components/fatigue/EventLogger";
-import { getSheetDayDateString, getTodayLocalDateString, getPreviousWeekSunday } from "@/lib/weeks";
+import {
+  getSheetDayDateString,
+  getTodayLocalDateString,
+  getPreviousWeekSunday,
+  parseLocalDate,
+} from "@/lib/weeks";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getProspectiveWorkWarnings } from "@/lib/compliance";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
@@ -133,6 +146,15 @@ function getForgottenActionReminder(
 
 const MANAGER_LOGIN_HREF = `/login?callbackUrl=${encodeURIComponent("/manager")}&managerLogin=1`;
 
+const SHEET_DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+function formatJumpDayLabel(weekStarting: string, dayIndex: number): string {
+  const ymd = getSheetDayDateString(weekStarting, dayIndex);
+  const d = parseLocalDate(ymd);
+  const date = d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  return `${SHEET_DAY_SHORT[dayIndex] ?? `D${dayIndex + 1}`} ${date}`;
+}
+
 export function SheetDetail({
   sheetId,
   canAccessManager,
@@ -177,6 +199,9 @@ export function SheetDetail({
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayCardsRef = useRef<HTMLDivElement>(null);
   const currentDayCardRef = useRef<HTMLDivElement | null>(null);
+  /** One ref per day card for toolbar “Go to day” scrolling */
+  const dayCardElsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const [toolbarDay, setToolbarDay] = useState(0);
   const isDirtyRef = useRef(isDirty);
   useEffect(() => {
     isDirtyRef.current = isDirty;
@@ -201,6 +226,14 @@ export function SheetDetail({
     () => getCurrentDayIndex(sheetData.week_starting),
     [sheetData.week_starting, now]
   );
+
+  useEffect(() => {
+    currentDayCardRef.current = dayCardElsRef.current[currentDayIndex] ?? null;
+  }, [currentDayIndex, sheetData.days.length, sheetData.week_starting]);
+
+  useEffect(() => {
+    setToolbarDay(currentDayIndex);
+  }, [currentDayIndex]);
 
   const todayYmd = useMemo(() => getTodayLocalDateString(), [now]);
 
@@ -658,74 +691,7 @@ export function SheetDetail({
           title="Fatigue Record"
           subtitle="WA Commercial Driver Fatigue Management"
           actions={
-          <>
-            <Link
-              href={canAccessManager ? "/manager" : MANAGER_LOGIN_HREF}
-              className="inline-flex items-center justify-center gap-1.5 shrink-0 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 sm:px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-              title={
-                canAccessManager
-                  ? "Manager dashboard"
-                  : "Sign in with a manager account to open the manager dashboard"
-              }
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Manager
-            </Link>
-            <Link
-              href={`/sheets/${sheetId}/shift-log`}
-              className="inline-flex items-center justify-center gap-1.5 shrink-0 h-8 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 sm:px-3 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-            >
-              <ScrollText className="w-3.5 h-3.5" />
-              Shift Log
-            </Link>
-            {lastSaved && !isDirty && (
-              <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span className="hidden sm:inline">Saved {lastSaved.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
-              </span>
-            )}
-            {isDirty && !saveMutation.isPending && (
-              <span className="text-[10px] text-amber-500 font-medium shrink-0">Unsaved changes</span>
-            )}
-            {sheetData.status === "completed" && (
-              <Badge variant="outline" className="border-emerald-300 text-emerald-600 flex items-center gap-1 shrink-0">
-                <CheckCircle2 className="w-3 h-3" /> Completed
-              </Badge>
-            )}
-            <div className="inline-flex flex-wrap items-center gap-2 shrink-0">
-              <Button
-                onClick={handleSave}
-                disabled={saveMutation.isPending}
-                size="sm"
-                className="bg-slate-900 hover:bg-slate-800 text-white gap-1.5 text-xs"
-              >
-                {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                Save
-              </Button>
-              {sheetData.status !== "completed" && (
-                <Button
-                  type="button"
-                  onClick={handleMarkCompleteClick}
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/50"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Mark complete
-                </Button>
-              )}
-              <Button
-                type="button"
-                onClick={handleExportPdf}
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-xs border-slate-300 dark:border-slate-600"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export PDF
-              </Button>
-            </div>
-            {sheetData.status === "completed" && (
+            sheetData.status === "completed" ? (
               <>
                 <div className="w-full basis-full h-0" aria-hidden />
                 <button
@@ -750,10 +716,147 @@ export function SheetDetail({
                   <span className="font-medium">{hasComplianceViolations ? "Issues" : "OK"}</span>
                 </button>
               </>
-            )}
-          </>
+            ) : null
           }
         />
+
+        <nav
+          className="mb-6 flex flex-col gap-5 md:flex-row md:flex-wrap md:items-stretch md:gap-0"
+          aria-label="Fatigue record toolbar"
+        >
+          <div className="space-y-2 md:pr-6">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
+              Navigate
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={canAccessManager ? "/manager" : MANAGER_LOGIN_HREF}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-1.5 text-xs text-slate-600 dark:text-slate-300"
+                )}
+                title={
+                  canAccessManager
+                    ? "Manager dashboard"
+                    : "Sign in with a manager account to open the manager dashboard"
+                }
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Manager
+              </Link>
+              <Link
+                href={`/sheets/${sheetId}/shift-log`}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-1.5 text-xs text-slate-600 dark:text-slate-300"
+                )}
+              >
+                <ScrollText className="w-3.5 h-3.5" />
+                Shift Log
+              </Link>
+            </div>
+          </div>
+
+          <div
+            className="hidden md:block w-px shrink-0 self-stretch min-h-[2.75rem] bg-slate-400/90 dark:bg-slate-600"
+            aria-hidden
+          />
+
+          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6 md:flex-1 md:min-w-0">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
+              This record
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Go to day</Label>
+                <Select
+                  value={String(toolbarDay)}
+                  onValueChange={(v) => {
+                    const i = Number.parseInt(v, 10);
+                    if (Number.isNaN(i) || i < 0 || i > 6) return;
+                    setToolbarDay(i);
+                    requestAnimationFrame(() => {
+                      dayCardElsRef.current[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue placeholder="Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SHEET_DAY_SHORT.map((_, idx) => (
+                      <SelectItem key={idx} value={String(idx)}>
+                        {formatJumpDayLabel(sheetData.week_starting, idx)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 min-h-8">
+                {lastSaved && !isDirty && (
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span className="hidden sm:inline">
+                      Saved{" "}
+                      {lastSaved.toLocaleTimeString("en-AU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}
+                    </span>
+                  </span>
+                )}
+                {isDirty && !saveMutation.isPending && (
+                  <span className="text-[10px] text-amber-500 font-medium shrink-0">Unsaved changes</span>
+                )}
+                {sheetData.status === "completed" && (
+                  <Badge variant="outline" className="border-emerald-300 text-emerald-600 flex items-center gap-1 shrink-0">
+                    <CheckCircle2 className="w-3 h-3" /> Completed
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <Button
+                  onClick={handleSave}
+                  disabled={saveMutation.isPending}
+                  size="sm"
+                  className="bg-slate-900 hover:bg-slate-800 text-white gap-1.5 text-xs"
+                >
+                  {saveMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  Save
+                </Button>
+                {sheetData.status !== "completed" && (
+                  <Button
+                    type="button"
+                    onClick={handleMarkCompleteClick}
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Mark complete
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={handleExportPdf}
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export PDF
+                </Button>
+              </div>
+            </div>
+          </div>
+        </nav>
 
         {saveMutation.isError &&
           (saveMutation.error as Error & { body?: { code?: string; sheet_id?: string } }).body?.code ===
@@ -780,7 +883,13 @@ export function SheetDetail({
               <SheetHeader sheetData={sheetData} onChange={handleHeaderChange} />
             </motion.div>
             {sheetData.days.map((day, idx) => (
-                <div key={idx} ref={idx === currentDayIndex ? currentDayCardRef : null} className={sheetData.status !== "completed" ? "scroll-mt-48" : "scroll-mt-6"}>
+                <div
+                  key={idx}
+                  ref={(el) => {
+                    dayCardElsRef.current[idx] = el;
+                  }}
+                  className={sheetData.status !== "completed" ? "scroll-mt-48" : "scroll-mt-6"}
+                >
                   <DayEntry
                     dayIndex={idx}
                     dayData={getDayWithCarriedOverCardInfo(sheetData.days, idx, sheetData.week_starting)}
