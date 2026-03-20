@@ -722,92 +722,99 @@ export function SheetDetail({
           className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-3"
           aria-label="Fatigue record toolbar"
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={canAccessManager ? "/manager" : MANAGER_LOGIN_HREF}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "gap-1.5 text-xs text-slate-600 dark:text-slate-300 h-8"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-8 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 shrink-0"
+                aria-label="File: save, mark complete, or export PDF"
+              >
+                File
+                <ChevronDown className="w-3.5 h-3.5 opacity-70" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[11rem]">
+              <DropdownMenuItem
+                onSelect={() => {
+                  handleSave();
+                }}
+                disabled={saveMutation.isPending}
+                className="text-xs"
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                ) : (
+                  <Save className="w-3.5 h-3.5 shrink-0" />
+                )}
+                Save
+              </DropdownMenuItem>
+              {sheetData.status !== "completed" && (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleMarkCompleteClick();
+                  }}
+                  className="text-xs"
+                  title="Sign off this record when the week is finished"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  Mark complete
+                </DropdownMenuItem>
               )}
-              title={
-                canAccessManager
-                  ? "Manager dashboard"
-                  : "Sign in with a manager account to open the manager dashboard"
-              }
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Manager
-            </Link>
-            <Link
-              href={`/sheets/${sheetId}/shift-log`}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "gap-1.5 text-xs text-slate-600 dark:text-slate-300 h-8"
-              )}
-            >
-              <ScrollText className="w-3.5 h-3.5" />
-              Shift Log
-            </Link>
-          </div>
+              <DropdownMenuItem
+                onSelect={() => {
+                  handleExportPdf();
+                }}
+                className="text-xs"
+              >
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                Export PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <div
-            className="hidden md:block w-px h-7 shrink-0 self-center bg-slate-400/90 dark:bg-slate-600"
+            className="w-px h-7 shrink-0 self-center bg-slate-400/90 dark:bg-slate-600"
             aria-hidden
           />
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs h-8 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300"
-                  aria-label="File: save, mark complete, or export PDF"
-                >
-                  File
-                  <ChevronDown className="w-3.5 h-3.5 opacity-70" aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[11rem]">
-                <DropdownMenuItem
-                  onSelect={() => {
-                    handleSave();
-                  }}
-                  disabled={saveMutation.isPending}
-                  className="text-xs"
-                >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  Save
-                </DropdownMenuItem>
-                {sheetData.status !== "completed" && (
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      handleMarkCompleteClick();
-                    }}
-                    className="text-xs"
-                    title="Sign off this record when the week is finished"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    Mark complete
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onSelect={() => {
-                    handleExportPdf();
-                  }}
-                  className="text-xs"
-                >
-                  <Download className="w-3.5 h-3.5 shrink-0" />
-                  Export PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <Link
+            href={`/sheets/${sheetId}/shift-log`}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "gap-1.5 text-xs text-slate-600 dark:text-slate-300 h-8 shrink-0"
+            )}
+          >
+            <ScrollText className="w-3.5 h-3.5" />
+            Shift Log
+          </Link>
+
+          <div
+            className="w-px h-7 shrink-0 self-center bg-slate-400/90 dark:bg-slate-600"
+            aria-hidden
+          />
+
+          <Link
+            href={canAccessManager ? "/manager" : MANAGER_LOGIN_HREF}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "gap-1.5 text-xs text-slate-600 dark:text-slate-300 h-8 shrink-0"
+            )}
+            title={
+              canAccessManager
+                ? "Manager dashboard"
+                : "Sign in with a manager account to open the manager dashboard"
+            }
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            Manager
+          </Link>
+
+          <div
+            className="w-px h-7 shrink-0 self-center bg-slate-400/90 dark:bg-slate-600"
+            aria-hidden
+          />
 
           <div className="flex flex-wrap items-center gap-2 min-h-8">
             {lastSaved && !isDirty && (
