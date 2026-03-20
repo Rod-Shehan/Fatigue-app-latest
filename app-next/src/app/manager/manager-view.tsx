@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type FatigueSheet, type SheetUpdatePayload } from "@/lib/api";
+import { api, type DayData, type FatigueSheet, type SheetUpdatePayload } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,16 +59,33 @@ function formatDayDateLabel(weekStarting: string, dayIndex: number): string {
   return `${day} ${date}`;
 }
 
+/** True if this day column has any logged data (events, rego, times, etc.). */
+function dayHasActivity(day: DayData | undefined): boolean {
+  if (!day || typeof day !== "object") return false;
+  if (typeof day.truck_rego === "string" && day.truck_rego.trim()) return true;
+  if (typeof day.destination === "string" && day.destination.trim()) return true;
+  if (Array.isArray(day.events) && day.events.length > 0) return true;
+  if (Array.isArray(day.work_time) && day.work_time.some(Boolean)) return true;
+  if (Array.isArray(day.breaks) && day.breaks.some(Boolean)) return true;
+  if (Array.isArray(day.non_work) && day.non_work.some(Boolean)) return true;
+  if (day.start_kms != null || day.end_kms != null) return true;
+  return false;
+}
+
 export function ManagerView() {
   const queryClient = useQueryClient();
   const [selectedSheetId, setSelectedSheetId] = useState<string>("");
   const [lastSheetId, setLastSheetId] = useState<string | null>(null);
   const [showAmendDialog, setShowAmendDialog] = useState(false);
   const [amendmentReason, setAmendmentReason] = useState("");
-  const [activeWeekStarting, setActiveWeekStarting] = useState<string>("");
+  const [activeWeekStarting, setActiveWeekStarting] = useState<string>(() =>
+    toYMD(startOfWeekSunday(new Date()))
+  );
   const [activeDayIndex, setActiveDayIndex] = useState<number>(new Date().getDay());
-  const [driverSearch, setDriverSearch] = useState("");
-  const [regoSearch, setRegoSearch] = useState("");
+  /** Driver filter: exact name from dropdown, or "" = all */
+  const [selectedDriverFilter, setSelectedDriverFilter] = useState("");
+  /** Rego filter: exact value from selected day, or "" = all */
+  const [selectedRegoFilter, setSelectedRegoFilter] = useState("");
   const [filterOnlyViolations, setFilterOnlyViolations] = useState(false);
   const [filterOnlyWarnings, setFilterOnlyWarnings] = useState(false);
   const [filterOnlyIncomplete, setFilterOnlyIncomplete] = useState(false);
@@ -113,12 +130,77 @@ export function ManagerView() {
     return weeks.sort().reverse();
   }, [sheets]);
 
-  useEffect(() => {
-    if (activeWeekStarting) return;
-    if (weekOptions.length > 0) setActiveWeekStarting(weekOptions[0]!);
-  }, [activeWeekStarting, weekOptions]);
-
   const firstWeekOption = weekOptions[0];
+
+  const weekSelectOptions = useMemo(() => {
+    const set = new Set<string>(weekOptions);
+    const cur = toYMD(startOfWeekSunday(new Date()));
+    set.add(cur);
+    if (activeWeekStarting) set.add(activeWeekStarting);
+    return [...set].sort().reverse();
+  }, [weekOptions, activeWeekStarting]);
+
+  const { driverOptions, regoOptions } = useMemo(() => {
+    if (!activeWeekStarting) {
+      return { driverOptions: [] as string[], regoOptions: [] as string[] };
+    }
+    const drivers = new Set<string>();
+    const regos = new Set<string>();
+    for (const s of sheets) {
+      if (s.week_starting !== activeWeekStarting) continue;
+      const day = Array.isArray(s.days) ? s.days[activeDayIndex] : undefined;
+      if (!dayHasActivity(day)) continue;
+      const name = (s.driver_name ?? "").trim();
+      if (name) drivers.add(name);
+      const second = (s.second_driver ?? "").trim();
+      if (second) drivers.add(second);
+      const rego = typeof day?.truck_rego === "string" ? day.truck_rego.trim() : "";
+      if (rego) regos.add(rego);
+    }
+    return {
+      driverOptions: [...drivers].sort((a, b) => a.localeCompare(b)),
+      regoOptions: [...regos].sort((a, b) => a.localeCompare(b)),
+    };
+  }, [sheets, activeWeekStarting, activeDayIndex]);
+
+  useEffect(() => {
+    if (selectedDriverFilter && !driverOptions.includes(selectedDriverFilter)) {
+      setSelectedDriverFilter("");
+    }
+  }, [selectedDriverFilter, driverOptions]);
+
+  useEffect(() => {
+    if (selectedRegoFilter && !regoOptions.includes(selectedRegoFilter)) {
+      setSelectedRegoFilter("");
+    }
+  }, [selectedRegoFilter, regoOptions]);
+
+  const filteredSheetsForPicker = useMemo(() => {
+    if (!activeWeekStarting) return sheets;
+    return sheets.filter((s) => {
+      if (s.week_starting !== activeWeekStarting) return false;
+      const day = Array.isArray(s.days) ? s.days[activeDayIndex] : undefined;
+      if (!dayHasActivity(day)) return false;
+      if (selectedDriverFilter) {
+        const primary = (s.driver_name ?? "").trim();
+        const second = (s.second_driver ?? "").trim();
+        if (primary !== selectedDriverFilter && second !== selectedDriverFilter) return false;
+      }
+      if (selectedRegoFilter) {
+        const r = typeof day?.truck_rego === "string" ? day.truck_rego.trim() : "";
+        if (r !== selectedRegoFilter) return false;
+      }
+      return true;
+    });
+  }, [sheets, activeWeekStarting, activeDayIndex, selectedDriverFilter, selectedRegoFilter]);
+
+  useEffect(() => {
+    if (!selectedSheetId) return;
+    if (!filteredSheetsForPicker.some((s) => s.id === selectedSheetId)) {
+      setSelectedSheetId("");
+    }
+  }, [selectedSheetId, filteredSheetsForPicker]);
+
   useEffect(() => {
     const w = activeWeekStarting || firstWeekOption;
     if (w) {
@@ -357,7 +439,7 @@ export function ManagerView() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All weeks</SelectItem>
-                    {weekOptions.map((w) => (
+                    {weekSelectOptions.map((w) => (
                       <SelectItem key={w} value={w}>
                         Week of {formatWeekLabel(w)}
                       </SelectItem>
@@ -371,23 +453,63 @@ export function ManagerView() {
                   <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
                     Driver
                   </Label>
-                  <Input
-                    value={driverSearch}
-                    onChange={(e) => setDriverSearch(e.target.value)}
-                    placeholder="Search driver…"
-                    className="w-[220px]"
-                  />
+                  <Select
+                    value={selectedDriverFilter || "__all__"}
+                    onValueChange={(v) => setSelectedDriverFilter(v === "__all__" ? "" : v)}
+                    disabled={sheetsLoading || !activeWeekStarting}
+                  >
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue
+                        placeholder={
+                          !activeWeekStarting ? "Choose a work week first" : "All drivers"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All drivers</SelectItem>
+                      {driverOptions.map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {activeWeekStarting && driverOptions.length === 0 && !sheetsLoading ? (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[220px]">
+                      No driver data on {formatDayDateLabel(activeWeekStarting, activeDayIndex)} for this week.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
                     Rego
                   </Label>
-                  <Input
-                    value={regoSearch}
-                    onChange={(e) => setRegoSearch(e.target.value)}
-                    placeholder="Search rego…"
-                    className="w-[220px]"
-                  />
+                  <Select
+                    value={selectedRegoFilter || "__all__"}
+                    onValueChange={(v) => setSelectedRegoFilter(v === "__all__" ? "" : v)}
+                    disabled={sheetsLoading || !activeWeekStarting}
+                  >
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue
+                        placeholder={
+                          !activeWeekStarting ? "Choose a work week first" : "All regos"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All regos</SelectItem>
+                      {regoOptions.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {r}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {activeWeekStarting && regoOptions.length === 0 && !sheetsLoading ? (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[220px]">
+                      No rego on {formatDayDateLabel(activeWeekStarting, activeDayIndex)} for this week.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -452,23 +574,26 @@ export function ManagerView() {
                     {" · "}
                     Day:{" "}
                     <span className="font-medium text-slate-700 dark:text-slate-200">
-                      {formatDayDateLabel(activeWeekStarting || weekOptions[0] || "", activeDayIndex)}
+                      {formatDayDateLabel(
+                        activeWeekStarting || calendarWeekAnchor,
+                        activeDayIndex
+                      )}
                     </span>
-                    {driverSearch.trim() ? (
+                    {selectedDriverFilter ? (
                       <>
                         {" · "}
                         Driver:{" "}
                         <span className="font-medium text-slate-700 dark:text-slate-200">
-                          {driverSearch.trim()}
+                          {selectedDriverFilter}
                         </span>
                       </>
                     ) : null}
-                    {regoSearch.trim() ? (
+                    {selectedRegoFilter ? (
                       <>
                         {" · "}
                         Rego:{" "}
                         <span className="font-medium text-slate-700 dark:text-slate-200">
-                          {regoSearch.trim()}
+                          {selectedRegoFilter}
                         </span>
                       </>
                     ) : null}
@@ -501,11 +626,19 @@ export function ManagerView() {
                   disabled={sheetsLoading}
                 >
                   <SelectTrigger className="w-full max-w-md">
-                    <SelectValue placeholder={sheets.length === 0 ? "No sheets yet" : "Select a sheet…"} />
+                    <SelectValue
+                      placeholder={
+                        filteredSheetsForPicker.length === 0 && activeWeekStarting
+                          ? "No matching sheets for this day / filters"
+                          : sheets.length === 0
+                            ? "No sheets yet"
+                            : "Select a sheet…"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— Select a sheet —</SelectItem>
-                    {sheets.map((s) => (
+                    {filteredSheetsForPicker.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {formatSheetLabel(s)}
                       </SelectItem>
@@ -517,6 +650,15 @@ export function ManagerView() {
                     Select a sheet above to edit driver details, last 24h break, and compliance-related fields.
                   </p>
                 )}
+                {activeWeekStarting &&
+                  filteredSheetsForPicker.length === 0 &&
+                  sheets.length > 0 &&
+                  !sheetsLoading && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      No sheets have data on the selected day for this week (and current driver/rego filters).
+                      Change the calendar day, filters, or work week.
+                    </p>
+                  )}
                 {sheets.length === 0 && !sheetsLoading && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     No sheets yet. Ask drivers to create a sheet from the driver app first.
