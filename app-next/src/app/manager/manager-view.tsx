@@ -236,7 +236,7 @@ export function ManagerView() {
           className="mb-6 flex flex-col gap-5 md:flex-row md:flex-wrap md:items-stretch md:gap-0"
           aria-label="Manager shortcuts"
         >
-          <div className="space-y-2 md:pr-6 md:border-r md:border-slate-200 md:dark:border-slate-700">
+          <div className="space-y-2 md:pr-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
               Team &amp; fleet
             </p>
@@ -259,7 +259,13 @@ export function ManagerView() {
             </div>
           </div>
 
-          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:px-6 md:border-r md:border-slate-200 md:dark:border-slate-700">
+          {/* Solid bar so the divider stays visible in light mode (border-slate-* is overridden in globals.css) */}
+          <div
+            className="hidden md:block w-px shrink-0 self-stretch min-h-[2.75rem] bg-slate-400/90 dark:bg-slate-600"
+            aria-hidden="true"
+          />
+
+          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:px-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
               Map
             </p>
@@ -271,6 +277,11 @@ export function ManagerView() {
               </Link>
             </div>
           </div>
+
+          <div
+            className="hidden md:block w-px shrink-0 self-stretch min-h-[2.75rem] bg-slate-400/90 dark:bg-slate-600"
+            aria-hidden="true"
+          />
 
           <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
