@@ -286,38 +286,44 @@ export function ManagerView() {
           </div>
         </nav>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-          <div
-            role="tablist"
-            aria-label="Manager workbench"
-            className="flex flex-wrap gap-2 p-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mb-4"
+        <div
+          role="tablist"
+          aria-label="Manager workbench"
+          className="flex flex-wrap gap-2 mb-5"
+        >
+          <Button
+            type="button"
+            role="tab"
+            aria-selected={managerTab === "compliance"}
+            variant={managerTab === "compliance" ? "default" : "outline"}
+            size="sm"
+            className={
+              managerTab === "compliance"
+                ? "gap-2"
+                : "gap-2 text-slate-600 dark:text-slate-300"
+            }
+            onClick={() => setManagerTab("compliance")}
           >
-            <Button
-              type="button"
-              role="tab"
-              aria-selected={managerTab === "compliance"}
-              variant={managerTab === "compliance" ? "default" : "ghost"}
-              size="sm"
-              className="gap-2 rounded-md"
-              onClick={() => setManagerTab("compliance")}
-            >
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              Compliance oversight
-            </Button>
-            <Button
-              type="button"
-              role="tab"
-              aria-selected={managerTab === "edit"}
-              variant={managerTab === "edit" ? "default" : "ghost"}
-              size="sm"
-              className="gap-2 rounded-md"
-              onClick={() => setManagerTab("edit")}
-            >
-              <FileEdit className="w-4 h-4 shrink-0" />
-              Edit sheet inputs
-            </Button>
-          </div>
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Compliance oversight
+          </Button>
+          <Button
+            type="button"
+            role="tab"
+            aria-selected={managerTab === "edit"}
+            variant={managerTab === "edit" ? "default" : "outline"}
+            size="sm"
+            className={
+              managerTab === "edit" ? "gap-2" : "gap-2 text-slate-600 dark:text-slate-300"
+            }
+            onClick={() => setManagerTab("edit")}
+          >
+            <FileEdit className="w-4 h-4 shrink-0" />
+            Edit sheet inputs
+          </Button>
+        </div>
 
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             {managerTab === "compliance"
               ? "Review a work week by day. Use filters to focus on non-compliant or incomplete sheets, then switch to Edit sheet to open or amend a sheet."
