@@ -18,6 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LayoutDashboard, Save, Loader2, CheckCircle2, FileEdit, Truck, Users, Trash2, UserPlus, AlertTriangle, Map as MapIcon, LogOut, MessageSquare } from "lucide-react";
+import {
+  ManagerMonthCalendar,
+  parseYMD,
+  startOfWeekSunday,
+  toYMD,
+} from "@/app/manager/manager-month-calendar";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -67,6 +73,10 @@ export function ManagerView() {
   const [filterOnlyWarnings, setFilterOnlyWarnings] = useState(false);
   const [filterOnlyIncomplete, setFilterOnlyIncomplete] = useState(false);
   const [managerTab, setManagerTab] = useState<"compliance" | "edit">("compliance");
+  const [calView, setCalView] = useState(() => {
+    const n = new Date();
+    return { y: n.getFullYear(), m: n.getMonth() };
+  });
 
   useEffect(() => {
     try {
@@ -107,6 +117,23 @@ export function ManagerView() {
     if (activeWeekStarting) return;
     if (weekOptions.length > 0) setActiveWeekStarting(weekOptions[0]!);
   }, [activeWeekStarting, weekOptions]);
+
+  const firstWeekOption = weekOptions[0];
+  useEffect(() => {
+    const w = activeWeekStarting || firstWeekOption;
+    if (w) {
+      const d = parseYMD(w);
+      setCalView({ y: d.getFullYear(), m: d.getMonth() });
+    }
+  }, [activeWeekStarting, firstWeekOption]);
+
+  const calendarWeekAnchor = useMemo(() => {
+    return (
+      activeWeekStarting ||
+      firstWeekOption ||
+      toYMD(startOfWeekSunday(new Date()))
+    );
+  }, [activeWeekStarting, firstWeekOption]);
 
   const { data: selectedSheet, isLoading: sheetLoading } = useQuery({
     queryKey: ["sheet", selectedSheetId],
@@ -348,23 +375,26 @@ export function ManagerView() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {DAY_LABELS.map((d, idx) => {
-                const active = idx === activeDayIndex;
-                const weekForLabel = activeWeekStarting || weekOptions[0] || "";
-                return (
-                  <Button
-                    key={d}
-                    type="button"
-                    size="sm"
-                    variant={active ? "default" : "outline"}
-                    onClick={() => setActiveDayIndex(idx)}
-                    className="rounded-full"
-                  >
-                    {formatDayDateLabel(weekForLabel, idx)}
-                  </Button>
-                );
-              })}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                Work day
+              </Label>
+              <ManagerMonthCalendar
+                viewYear={calView.y}
+                viewMonth={calView.m}
+                onViewPrev={() =>
+                  setCalView(({ y, m }) => (m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 }))
+                }
+                onViewNext={() =>
+                  setCalView(({ y, m }) => (m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 }))
+                }
+                weekStartingYmd={calendarWeekAnchor}
+                activeDayIndex={activeDayIndex}
+                onSelectDate={(weekStartingYmd, dayIndex) => {
+                  setActiveWeekStarting(weekStartingYmd);
+                  setActiveDayIndex(dayIndex);
+                }}
+              />
             </div>
 
             {managerTab === "compliance" && (
