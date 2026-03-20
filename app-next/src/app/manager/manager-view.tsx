@@ -424,9 +424,9 @@ export function ManagerView() {
           </p>
 
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-3 items-end justify-between">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-start sm:gap-x-4">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Work week
                 </Label>
                 <Select
@@ -434,7 +434,7 @@ export function ManagerView() {
                   onValueChange={(v) => setActiveWeekStarting(v === "all" ? "" : v)}
                   disabled={sheetsLoading}
                 >
-                  <SelectTrigger className="w-[240px]">
+                  <SelectTrigger className="h-9 w-full border-slate-200 bg-transparent text-sm font-medium dark:border-slate-600">
                     <SelectValue placeholder="Select week…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -448,71 +448,75 @@ export function ManagerView() {
                 </Select>
               </div>
 
-              <div className="flex flex-wrap gap-2 items-end">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                    Driver
-                  </Label>
-                  <Select
-                    value={selectedDriverFilter || "__all__"}
-                    onValueChange={(v) => setSelectedDriverFilter(v === "__all__" ? "" : v)}
-                    disabled={sheetsLoading || !activeWeekStarting}
-                  >
-                    <SelectTrigger className="w-[220px]">
-                      <SelectValue
-                        placeholder={
-                          !activeWeekStarting ? "Choose a work week first" : "All drivers"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">All drivers</SelectItem>
-                      {driverOptions.map((d) => (
-                        <SelectItem key={d} value={d}>
-                          {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {activeWeekStarting && driverOptions.length === 0 && !sheetsLoading ? (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[220px]">
-                      No driver data on {formatDayDateLabel(activeWeekStarting, activeDayIndex)} for this week.
-                    </p>
-                  ) : null}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                    Rego
-                  </Label>
-                  <Select
-                    value={selectedRegoFilter || "__all__"}
-                    onValueChange={(v) => setSelectedRegoFilter(v === "__all__" ? "" : v)}
-                    disabled={sheetsLoading || !activeWeekStarting}
-                  >
-                    <SelectTrigger className="w-[220px]">
-                      <SelectValue
-                        placeholder={
-                          !activeWeekStarting ? "Choose a work week first" : "All regos"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">All regos</SelectItem>
-                      {regoOptions.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {activeWeekStarting && regoOptions.length === 0 && !sheetsLoading ? (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[220px]">
-                      No rego on {formatDayDateLabel(activeWeekStarting, activeDayIndex)} for this week.
-                    </p>
-                  ) : null}
-                </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Driver
+                </Label>
+                <Select
+                  value={selectedDriverFilter || "__all__"}
+                  onValueChange={(v) => setSelectedDriverFilter(v === "__all__" ? "" : v)}
+                  disabled={sheetsLoading || !activeWeekStarting}
+                >
+                  <SelectTrigger className="h-9 w-full border-slate-200 bg-transparent text-sm font-medium dark:border-slate-600">
+                    <SelectValue
+                      placeholder={
+                        !activeWeekStarting ? "Choose a work week first" : "All drivers"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All drivers</SelectItem>
+                    {driverOptions.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Rego
+                </Label>
+                <Select
+                  value={selectedRegoFilter || "__all__"}
+                  onValueChange={(v) => setSelectedRegoFilter(v === "__all__" ? "" : v)}
+                  disabled={sheetsLoading || !activeWeekStarting}
+                >
+                  <SelectTrigger className="h-9 w-full border-slate-200 bg-transparent text-sm font-medium dark:border-slate-600">
+                    <SelectValue
+                      placeholder={
+                        !activeWeekStarting ? "Choose a work week first" : "All regos"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All regos</SelectItem>
+                    {regoOptions.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+
+            {activeWeekStarting && !sheetsLoading ? (
+              <div className="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                {driverOptions.length === 0 ? (
+                  <p>
+                    No driver data on {formatDayDateLabel(activeWeekStarting, activeDayIndex)} for this week.
+                  </p>
+                ) : null}
+                {regoOptions.length === 0 ? (
+                  <p>
+                    No rego on {formatDayDateLabel(activeWeekStarting, activeDayIndex)} for this week.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="space-y-1.5">
               <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
