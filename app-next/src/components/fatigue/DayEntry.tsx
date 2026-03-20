@@ -153,12 +153,15 @@ export default function DayEntry({
               }
               disabled={readOnly}
             >
-              <SelectTrigger className="w-28 h-7 text-xs font-mono px-2 [&>span]:line-clamp-1">
+              <SelectTrigger
+                className="w-28 h-7 text-xs font-mono px-2 [&>span]:line-clamp-1"
+                aria-label="Rego"
+              >
                 <SelectValue placeholder="Rego" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__" className="text-slate-400 font-mono">
-                  — Select rego —
+                  Rego
                 </SelectItem>
                 {(() => {
                   const labels = regos.map((r) => r.label);
