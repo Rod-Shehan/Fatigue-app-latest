@@ -125,6 +125,7 @@ export default function PdfExportView({ sheetData, regos = [], onHeaderChange }:
         <SheetHeader
           sheetData={sheetData}
           onChange={onHeaderChange ?? (() => {})}
+          readOnly
         />
       </div>
 

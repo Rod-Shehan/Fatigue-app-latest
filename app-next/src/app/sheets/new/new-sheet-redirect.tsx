@@ -8,6 +8,7 @@ import { createSheetOfflineFirst, listSheetsOfflineFirst } from "@/lib/offline-a
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
+import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 const EMPTY_DAY = () => ({
   day_label: "",
@@ -29,21 +30,11 @@ function getThisWeekSunday() {
   return sunday.toISOString().split("T")[0];
 }
 
-function defaultDisplayNameFromSession(session: ReturnType<typeof useSession>["data"]): string {
-  const raw =
-    (typeof session?.user?.name === "string" && session.user.name.trim()) ||
-    (typeof session?.user?.email === "string" && session.user.email.trim()) ||
-    "";
-  if (!raw) return "";
-  if (raw.includes("@")) return raw.split("@")[0] || "";
-  return raw;
-}
-
 export function NewSheetRedirect() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session, status } = useSession();
-  const defaultDriverName = defaultDisplayNameFromSession(session);
+  const defaultDriverName = getDisplayNameFromSession(session);
   const createMutation = useMutation({
     mutationFn: () =>
       createSheetOfflineFirst({

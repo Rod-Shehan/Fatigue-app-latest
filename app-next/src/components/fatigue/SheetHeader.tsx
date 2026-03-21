@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { User, Users, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { api } from "@/lib/api";
 import { formatSheetDisplayDate } from "@/lib/weeks";
 import { DEFAULT_JURISDICTION_CODE, getJurisdictionOptions } from "@/lib/jurisdiction";
+import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 type SheetData = {
   driver_name?: string;
@@ -27,7 +29,7 @@ export default function SheetHeader({
   readOnly = false,
 }: {
   sheetData: SheetData;
-  onChange: (s: SheetData) => void;
+  onChange: (s: Partial<SheetData>) => void;
   readOnly?: boolean;
 }) {
   const last24hDateInputRef = useRef<HTMLInputElement>(null);
@@ -43,11 +45,34 @@ export default function SheetHeader({
   const driverType = sheetData.driver_type || "solo";
   const last24hSet = !!sheetData.last_24h_break?.trim();
 
+  const { data: session, status: sessionStatus } = useSession();
+  const role = (session?.user as { role?: string | null } | undefined)?.role ?? null;
+  const isManager = role === "manager";
+  const sessionDriverName = getDisplayNameFromSession(session ?? null);
+
+  /** Drivers: primary name always comes from the account; managers see the name stored on the sheet. */
+  useEffect(() => {
+    if (readOnly || isManager || sessionStatus !== "authenticated") return;
+    if (!sessionDriverName) return;
+    if (sheetData.driver_name === sessionDriverName) return;
+    onChange({ driver_name: sessionDriverName });
+  }, [readOnly, isManager, sessionStatus, sessionDriverName, sheetData.driver_name, onChange]);
+
   const { data: drivers = [] } = useQuery({
     queryKey: ["drivers"],
     queryFn: () => api.drivers.list(),
+    /** Only need roster for Two-Up second driver picker */
+    enabled: driverType === "two_up",
   });
   const activeDrivers = drivers.filter((d) => d.is_active);
+
+  const primaryDriverLabel = readOnly
+    ? sheetData.driver_name || "—"
+    : isManager
+      ? sheetData.driver_name || "—"
+      : sessionStatus === "loading"
+        ? "…"
+        : sessionDriverName || sheetData.driver_name || "—";
 
   return (
     <div className="space-y-4">
@@ -88,32 +113,12 @@ export default function SheetHeader({
           <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <User className="w-3 h-3" /> Driver Name
           </Label>
-          {activeDrivers.length > 0 ? (
-            <Select
-              value={sheetData.driver_name || ""}
-              onValueChange={(val) => handleChange("driver_name", val)}
-              disabled={readOnly}
-            >
-              <SelectTrigger className="h-9 font-medium w-full">
-                <SelectValue placeholder="Select driver…" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeDrivers.map((d) => (
-                  <SelectItem key={d.id} value={d.name}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input
-              value={sheetData.driver_name || ""}
-              onChange={(e) => handleChange("driver_name", e.target.value)}
-              placeholder="Full name (no drivers added yet)"
-              className="h-9 text-sm font-medium"
-              disabled={readOnly}
-            />
-          )}
+          <div
+            className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-100"
+            title={isManager ? "Driver name on this sheet" : "From your account (login name)"}
+          >
+            <span className="truncate">{primaryDriverLabel}</span>
+          </div>
         </div>
         {driverType === "two_up" && (
           <div className="space-y-1.5 flex-1 min-w-0 sm:min-w-[12rem] w-full sm:w-auto">
