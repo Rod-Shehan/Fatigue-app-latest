@@ -57,9 +57,7 @@ export function PageHeader({
     <div
       className="w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm dark:border-slate-600 dark:bg-slate-900/80 dark:shadow-none lg:max-w-sm lg:shrink-0"
       role="status"
-      aria-label={
-        di.isManagerView ? `Driver on this sheet: ${di.name}` : `Signed in as ${di.name}`
-      }
+      aria-label={`Driver name: ${di.name}`}
     >
       <div className="flex items-start gap-3">
         <div
@@ -70,16 +68,11 @@ export function PageHeader({
         </div>
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-            {di.isManagerView ? "Driver on this sheet" : "Driver"}
+            Driver name
           </p>
           <p className="mt-0.5 text-lg font-bold leading-snug tracking-tight text-slate-900 dark:text-slate-50 sm:text-xl">
             {di.name}
           </p>
-          {!di.isManagerView && (
-            <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-              From your account — not a field you edit here.
-            </p>
-          )}
         </div>
       </div>
     </div>
