@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Briefcase, Coffee, Moon, Square, Check, X, Loader2, AlertTriangle } from "lucide-react";
+import { Briefcase, Coffee, Moon, Square, Check, X, Loader2, AlertTriangle, Clock } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getEventsInTimeOrder, getInsufficientNonWorkMessage } from "@/lib/rolling-events";
@@ -244,16 +244,19 @@ export default function LogBar({
   const [workWarning, setWorkWarning] = useState<{ message: string; confirmLabel: string; onConfirm: () => void; onCancel?: () => void; subtext?: string } | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 10000);
-    return () => clearInterval(id);
-  }, []);
 
   const day = days[currentDayIndex];
   const dayForCardFields = currentDayDisplay ?? day;
   const events = day?.events || [];
   const lastEvent = events[events.length - 1];
   const currentType = lastEvent && lastEvent.type !== "stop" ? lastEvent.type : null;
+
+  /** Faster tick during work/break so compliance header (e.g. pending → OK) updates within a few seconds. */
+  useEffect(() => {
+    const ms = currentType === "work" || currentType === "break" ? 2000 : 10000;
+    const id = setInterval(() => setTick((t) => t + 1), ms);
+    return () => clearInterval(id);
+  }, [currentType]);
 
   const elapsedMs = currentType && lastEvent ? Date.now() - new Date(lastEvent.time).getTime() : 0;
   const elapsedMinutes = Math.max(0, elapsedMs / 60000);
@@ -292,6 +295,14 @@ export default function LogBar({
     if (complianceButton.loading) return "default" as const;
     if (complianceButton.hasViolations) return "violation" as const;
     if (complianceButton.hasWarnings) return "warning" as const;
+    /** Break running but 20 min statutory bar not complete — between “warning” and full “OK” green. */
+    if (
+      currentType === "break" &&
+      contextualBar?.type === "break" &&
+      contextualBar.pct < 100
+    ) {
+      return "pending" as const;
+    }
     return "ok" as const;
   })();
 
@@ -301,9 +312,11 @@ export default function LogBar({
       ? "bg-red-400 dark:bg-red-600 border-b-4 border-red-900 dark:border-red-100 shadow-lg"
       : complianceTone === "warning"
         ? "bg-amber-400 dark:bg-amber-500 border-b-4 border-amber-900 dark:border-amber-100 shadow-lg"
-        : complianceTone === "ok"
-          ? "bg-emerald-400 dark:bg-emerald-600 border-b-4 border-emerald-900 dark:border-emerald-100 shadow-lg"
-          : "bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-md";
+        : complianceTone === "pending"
+          ? "bg-gradient-to-r from-amber-400 via-lime-400 to-emerald-500 dark:from-amber-600 dark:via-lime-600 dark:to-emerald-600 border-b-4 border-amber-900 dark:border-emerald-100 shadow-lg"
+          : complianceTone === "ok"
+            ? "bg-emerald-400 dark:bg-emerald-600 border-b-4 border-emerald-900 dark:border-emerald-100 shadow-lg"
+            : "bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-md";
 
   /** Keep labels readable on solid compliance backgrounds. */
   const complianceBarTextClass =
@@ -311,9 +324,11 @@ export default function LogBar({
       ? "text-red-950 dark:text-white [&_.text-slate-400]:!text-red-900/80 [&_.text-slate-400]:dark:!text-red-50 [&_.text-slate-500]:dark:!text-red-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
       : complianceTone === "warning"
         ? "text-amber-950 dark:text-white [&_.text-slate-400]:!text-amber-900/80 [&_.text-slate-400]:dark:!text-amber-50 [&_.text-slate-500]:dark:!text-amber-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
-        : complianceTone === "ok"
-          ? "text-emerald-950 dark:text-white [&_.text-slate-400]:!text-emerald-900/75 [&_.text-slate-400]:dark:!text-emerald-50 [&_.text-slate-500]:dark:!text-emerald-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
-          : "";
+        : complianceTone === "pending"
+          ? "text-emerald-950 dark:text-white [&_.text-slate-400]:!text-amber-900/80 [&_.text-slate-400]:dark:!text-amber-50 [&_.text-slate-500]:dark:!text-lime-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
+          : complianceTone === "ok"
+            ? "text-emerald-950 dark:text-white [&_.text-slate-400]:!text-emerald-900/75 [&_.text-slate-400]:dark:!text-emerald-50 [&_.text-slate-500]:dark:!text-emerald-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
+            : "";
 
   const clearPending = useCallback(() => {
     if (resetTimerRef.current) {
@@ -634,6 +649,8 @@ export default function LogBar({
                 "shrink-0 self-center flex items-center justify-center h-12 w-12 min-h-[48px] min-w-[48px] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 disabled:pointer-events-none transition-colors",
                 complianceTone === "ok" &&
                   "bg-black/20 dark:bg-white/25 hover:bg-black/30 dark:hover:bg-white/35 focus-visible:ring-emerald-900 dark:focus-visible:ring-white focus-visible:ring-offset-emerald-400 dark:focus-visible:ring-offset-emerald-600",
+                complianceTone === "pending" &&
+                  "bg-black/20 dark:bg-white/25 hover:bg-black/30 dark:hover:bg-white/35 focus-visible:ring-amber-900 dark:focus-visible:ring-amber-100 focus-visible:ring-offset-amber-400 dark:focus-visible:ring-offset-lime-600",
                 complianceTone === "warning" &&
                   "bg-black/15 dark:bg-black/20 hover:bg-black/25 dark:hover:bg-black/30 focus-visible:ring-amber-900 dark:focus-visible:ring-amber-100 focus-visible:ring-offset-amber-400 dark:focus-visible:ring-offset-amber-500",
                 complianceTone === "violation" &&
@@ -647,7 +664,9 @@ export default function LogBar({
                     ? "View compliance — violations"
                     : complianceButton.hasWarnings
                       ? "View compliance — warnings"
-                      : "View compliance — all clear"
+                      : complianceTone === "pending"
+                        ? "Break in progress — tap for compliance details"
+                        : "View compliance — all clear"
               }
               aria-label={
                 complianceButton.loading
@@ -656,7 +675,9 @@ export default function LogBar({
                     ? "Compliance: violations — jump to details"
                     : complianceButton.hasWarnings
                       ? "Compliance: warnings — jump to details"
-                      : "Compliance: OK — jump to details"
+                      : complianceTone === "pending"
+                        ? "Compliance: break in progress — jump to details"
+                        : "Compliance: OK — jump to details"
               }
             >
               {complianceButton.loading ? (
@@ -671,6 +692,12 @@ export default function LogBar({
                 <X className="w-9 h-9 shrink-0 text-red-950 dark:text-white drop-shadow-sm" strokeWidth={3} aria-hidden />
               ) : complianceButton.hasWarnings ? (
                 <AlertTriangle className="w-9 h-9 shrink-0 text-amber-950 dark:text-white drop-shadow-sm" strokeWidth={2.5} aria-hidden />
+              ) : complianceTone === "pending" ? (
+                <Clock
+                  className="w-9 h-9 shrink-0 text-emerald-950 dark:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
               ) : (
                 <Check
                   className="w-9 h-9 shrink-0 text-emerald-950 dark:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
