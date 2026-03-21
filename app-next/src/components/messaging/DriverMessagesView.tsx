@@ -23,7 +23,10 @@ function weekLabel(weekStarting: string) {
   return new Date(weekStarting + "T12:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function MessagesView() {
+/**
+ * Driver-only messaging UI (contact managers). Not used for manager inbox — see ManagerMessagesView.
+ */
+export function DriverMessagesView() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [activeThreadId, setActiveThreadId] = useState<string>("");
@@ -72,6 +75,11 @@ export function MessagesView() {
   });
   const messages = threadData?.messages ?? [];
 
+  const suggestedSubject = useMemo(() => {
+    if (newKind === "training") return "Training question";
+    return "Request sheet edit";
+  }, [newKind]);
+
   const createThreadMutation = useMutation({
     mutationFn: () =>
       api.messages.createThread({
@@ -99,11 +107,6 @@ export function MessagesView() {
     },
   });
 
-  const suggestedSubject = useMemo(() => {
-    if (newKind === "training") return "Training question";
-    return "Request sheet edit";
-  }, [newKind]);
-
   const sheetOptions = useMemo(() => {
     const byWeek = new Map<string, FatigueSheet[]>();
     for (const s of sheets) {
@@ -123,7 +126,7 @@ export function MessagesView() {
           backHref="/sheets"
           backLabel="Your sheets"
           title="Messages"
-          subtitle="Ask training questions or request sheet edits"
+          subtitle="Contact your manager — training, questions, or sheet edit requests"
           roleDisplayLabel={headerDriverName ?? undefined}
           icon={<MessageSquare className="w-5 h-5" />}
           actions={
@@ -138,13 +141,14 @@ export function MessagesView() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Threads
+                Your conversations
               </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">With your manager</p>
             </div>
             <div className="max-h-[70vh] overflow-auto">
               {threads.length === 0 ? (
                 <div className="p-4 text-sm text-slate-600 dark:text-slate-300">
-                  No messages yet. Click <strong>New message</strong> to start.
+                  No messages yet. Tap <strong>New message</strong> to reach your manager.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -199,7 +203,7 @@ export function MessagesView() {
             <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {activeThread ? activeThread.subject : "Select a thread"}
+                  {activeThread ? activeThread.subject : "Select a conversation"}
                 </p>
                 {activeThread?.sheet ? (
                   <div className="flex items-center gap-2 mt-0.5">
@@ -212,16 +216,16 @@ export function MessagesView() {
                       </span>
                     </Link>
                   </div>
-                ) : (
+                ) : activeThread ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">General</p>
-                )}
+                ) : null}
               </div>
             </div>
 
             <div className="flex-1 overflow-auto p-4 space-y-4 bg-slate-100/80 dark:bg-slate-950/50">
               {!activeThreadId ? (
                 <div className="text-sm text-slate-600 dark:text-slate-300">
-                  Choose a thread on the left, or start a new message.
+                  Choose a conversation on the left, or start a <strong>New message</strong>.
                 </div>
               ) : threadLoading ? (
                 <div className="text-sm text-slate-600 dark:text-slate-300">Loading…</div>
@@ -256,7 +260,7 @@ export function MessagesView() {
                 <Input
                   value={compose}
                   onChange={(e) => setCompose(e.target.value)}
-                  placeholder={activeThreadId ? "Type a message…" : "Select a thread to reply…"}
+                  placeholder={activeThreadId ? "Type a message…" : "Select a conversation to reply…"}
                   disabled={!activeThreadId || postMutation.isPending}
                 />
                 <Button
@@ -280,9 +284,9 @@ export function MessagesView() {
         <Dialog open={newOpen} onOpenChange={setNewOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>New message</DialogTitle>
+              <DialogTitle>New message to your manager</DialogTitle>
               <DialogDescription>
-                Choose a type and write your message. Use “Request sheet edit” if you made a mistake and need a manager to amend a sheet.
+                Choose a type and write your message. Use “Request sheet edit” if something on a sheet needs correcting.
               </DialogDescription>
             </DialogHeader>
 
@@ -375,4 +379,3 @@ export function MessagesView() {
     </div>
   );
 }
-

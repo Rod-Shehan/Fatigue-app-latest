@@ -864,7 +864,7 @@ export function SheetDetail({
           />
 
           <Link
-            href="/messages"
+            href="/driver/messages"
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
               "gap-1.5 text-xs text-slate-600 dark:text-slate-300 h-8 shrink-0"

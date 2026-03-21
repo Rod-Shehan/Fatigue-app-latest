@@ -61,7 +61,7 @@ export function SheetsList() {
                   <LogOut className="w-4 h-4" />
                   Log out
                 </Button>
-                <Link href="/messages">
+                <Link href="/driver/messages">
                   <Button variant="outline" className="gap-2 text-slate-600 dark:text-slate-300">
                     <MessageSquare className="w-4 h-4" />
                     Messages
