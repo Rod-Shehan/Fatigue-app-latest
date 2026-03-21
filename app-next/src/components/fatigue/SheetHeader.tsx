@@ -27,10 +27,13 @@ export default function SheetHeader({
   sheetData,
   onChange,
   readOnly = false,
+  /** When true, primary driver is shown elsewhere (e.g. page title tile); keep second driver + rest. */
+  hidePrimaryDriverField = false,
 }: {
   sheetData: SheetData;
   onChange: (s: Partial<SheetData>) => void;
   readOnly?: boolean;
+  hidePrimaryDriverField?: boolean;
 }) {
   const last24hDateInputRef = useRef<HTMLInputElement>(null);
   const [confirmLast24hOpen, setConfirmLast24hOpen] = useState(false);
@@ -66,17 +69,9 @@ export default function SheetHeader({
   });
   const activeDrivers = drivers.filter((d) => d.is_active);
 
-  const primaryDriverLabel = readOnly
-    ? sheetData.driver_name || "—"
-    : isManager
-      ? sheetData.driver_name || "—"
-      : sessionStatus === "loading"
-        ? "…"
-        : sessionDriverName || sheetData.driver_name || "—";
-
   return (
     <div className="space-y-4">
-      {/* Row 1: Driver type (left) + Driver name (right); Two-Up adds second driver on the same row when space allows */}
+      {/* Row 1: Driver type + optional primary name in form; Two-Up adds second driver */}
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="space-y-1.5 shrink-0">
           <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block">
@@ -109,17 +104,27 @@ export default function SheetHeader({
             </button>
           </div>
         </div>
-        <div className="space-y-1.5 flex-1 min-w-0 sm:min-w-[12rem]">
-          <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <User className="w-3 h-3" /> Driver Name
-          </Label>
-          <div
-            className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-100"
-            title={isManager ? "Driver name on this sheet" : "From your account (login name)"}
-          >
-            <span className="truncate">{primaryDriverLabel}</span>
+        {!hidePrimaryDriverField && (
+          <div className="space-y-1.5 flex-1 min-w-0 sm:min-w-[12rem]">
+            <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <User className="w-3 h-3" /> Driver Name
+            </Label>
+            <div
+              className="flex h-9 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-100"
+              title={isManager ? "Driver name on this sheet" : "From your account (login name)"}
+            >
+              <span className="truncate">
+                {readOnly
+                  ? sheetData.driver_name || "—"
+                  : isManager
+                    ? sheetData.driver_name || "—"
+                    : sessionStatus === "loading"
+                      ? "…"
+                      : sessionDriverName || sheetData.driver_name || "—"}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
         {driverType === "two_up" && (
           <div className="space-y-1.5 flex-1 min-w-0 sm:min-w-[12rem] w-full sm:w-auto">
             <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">

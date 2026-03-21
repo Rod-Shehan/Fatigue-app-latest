@@ -42,6 +42,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/PageHeader";
 import SheetHeader from "@/components/fatigue/SheetHeader";
 import { CvdMedicalBanner } from "@/components/fatigue/CvdMedicalBanner";
@@ -59,6 +60,7 @@ import { getProspectiveWorkWarnings } from "@/lib/compliance";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
+import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 const EMPTY_DAY = (): DayData => ({
   day_label: "",
@@ -269,6 +271,18 @@ export function SheetDetail({
     queryKey: ["drivers"],
     queryFn: () => api.drivers.list(),
   });
+
+  const { data: session, status: sessionStatus } = useSession();
+  const isManager = (session?.user as { role?: string | null } | undefined)?.role === "manager";
+  const sessionDriverName = getDisplayNameFromSession(session ?? null);
+  const driverPageIdentity = useMemo(() => {
+    const name = isManager
+      ? (sheetData.driver_name || "").trim() || "—"
+      : sessionStatus === "loading"
+        ? "…"
+        : (sessionDriverName || sheetData.driver_name || "").trim() || "—";
+    return { name, isManagerView: isManager };
+  }, [isManager, sessionStatus, sessionDriverName, sheetData.driver_name]);
 
   const matchedRosterPrimary = useMemo(() => {
     const n = sheetData.driver_name?.trim().toLowerCase();
@@ -713,6 +727,7 @@ export function SheetDetail({
           backLabel="Your Sheets"
           title="Fatigue Record"
           subtitle="WA Commercial Driver Fatigue Management"
+          driverIdentity={driverPageIdentity}
           actions={
             sheetData.status === "completed" ? (
               <>
@@ -890,7 +905,7 @@ export function SheetDetail({
         <div className="flex flex-col lg:flex-row gap-6">
           <div ref={dayCardsRef} className="flex-1 space-y-4">
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 md:p-5">
-              <SheetHeader sheetData={sheetData} onChange={handleHeaderChange} />
+              <SheetHeader sheetData={sheetData} onChange={handleHeaderChange} hidePrimaryDriverField />
               {matchedRosterPrimary && (
                 <CvdMedicalBanner
                   driverLabel={matchedRosterPrimary.name}
