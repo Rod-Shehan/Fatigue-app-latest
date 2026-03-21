@@ -7,7 +7,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { VoiceAlertsToggle } from "@/components/VoiceAlertsToggle";
 import { getVoiceAlertsEnabled, speakVoiceAlert } from "@/lib/voice-alerts";
 import { getEventsInTimeOrder, getInsufficientNonWorkMessage } from "@/lib/rolling-events";
-import { parseLocalDate } from "@/lib/weeks";
 import { cn } from "@/lib/utils";
 
 const WORK_TARGET_MINUTES = 5 * 60;
@@ -16,6 +15,14 @@ const BREAK_TARGET_MINUTES = 20;
 function formatCountdown(mins: number): string {
   if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   return `${mins}m`;
+}
+
+/** Elapsed work/break time beside the header bar (e.g. 0h 05m). */
+function formatElapsedBarDisplay(totalMinutes: number): string {
+  const m = Math.floor(Math.max(0, totalMinutes));
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${h}h ${min.toString().padStart(2, "0")}m`;
 }
 
 const EVENT_ICONS: Record<ActivityKey, React.ComponentType<{ className?: string }>> = {
@@ -194,7 +201,7 @@ type DayData = {
 export default function LogBar({
   days,
   currentDayIndex,
-  weekStarting,
+  weekStarting: _weekStarting,
   onLogEvent,
   onEndShiftRequest,
   leadingIcon,
@@ -216,7 +223,7 @@ export default function LogBar({
   onLogEvent: (dayIndex: number, type: string, driver?: "primary" | "second") => void;
   /** When provided, End shift (second tap) calls this instead of onLogEvent so the parent can show end km input. */
   onEndShiftRequest?: (dayIndex: number) => void;
-  /** Optional icon shown to the left of the "Today" label in the top header row. */
+  /** Optional icon beside the activity line above the time bar (and near actions when idle). */
   leadingIcon?: React.ReactNode;
   /** Prospective compliance messages (non-work time, limits) if work were logged now. When set, shown when user taps Work. */
   workRelevantComplianceMessages?: string[];
@@ -287,19 +294,6 @@ export default function LogBar({
       return { type: "break" as const, elapsed: elapsedMinutes, target, pct, remaining, color: ACTIVITY_THEME.break.hex, label: "20m" };
     }
     return null;
-  })();
-
-  const currentDayLabel = (() => {
-    if (!weekStarting) return DAY_NAMES[currentDayIndex];
-    const d = parseLocalDate(weekStarting);
-    d.setDate(d.getDate() + currentDayIndex);
-    return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
-  })();
-  const currentDayLabelShort = (() => {
-    if (!weekStarting) return DAY_NAMES[currentDayIndex];
-    const d = parseLocalDate(weekStarting);
-    d.setDate(d.getDate() + currentDayIndex);
-    return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
   })();
 
   const complianceTone = (() => {
@@ -535,19 +529,9 @@ export default function LogBar({
 
   const barContent = (
     <div className={cn("space-y-2", complianceBarTextClass)}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base min-w-0">
-        {leadingIcon != null && (
-          <span className="flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0" aria-hidden>
-            {leadingIcon}
-          </span>
-        )}
-        <span className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold shrink-0">Today</span>
-        <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums shrink-0">
-          <span className="hidden sm:inline">{currentDayLabel}</span>
-          <span className="sm:hidden">{currentDayLabelShort}</span>
-        </span>
+      <div className="flex flex-wrap items-center justify-center gap-3">
         {driverType === "two_up" && (
-          <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 ml-2">
+          <span className="flex w-full justify-center items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:w-auto sm:justify-start">
             <span className="uppercase tracking-wider font-semibold">Driver</span>
             <button
               type="button"
@@ -573,15 +557,11 @@ export default function LogBar({
             </button>
           </span>
         )}
-        {currentType && (
-          <span className="text-slate-500 dark:text-slate-400 shrink-0">
-            <span className="hidden sm:inline">— current activity: </span>
-            <span className="sm:hidden">· </span>
-            <span className="font-semibold text-slate-700 dark:text-slate-200">{currentType}</span>
+        {leadingIcon != null && !contextualBar && (
+          <span className="flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0" aria-hidden>
+            {leadingIcon}
           </span>
         )}
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-3">
         <div className="inline-flex items-center gap-3 shrink-0">
           {(() => {
             const nextWorkBreak = getNextWorkBreakType(currentType);
@@ -625,63 +605,93 @@ export default function LogBar({
 
       {contextualBar && (
         <div className="pt-1">
-          <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          <div className="mb-0.5 flex items-start gap-2 min-w-0">
+            {leadingIcon != null && (
+              <span
+                className="flex shrink-0 items-center justify-center text-slate-500 dark:text-slate-400"
+                aria-hidden
+              >
+                {leadingIcon}
+              </span>
+            )}
+            <span className="min-w-0 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               {contextualBar.type === "work" && (() => {
                 const breakDueByMs = getBreakDueByTime(events, Date.now());
-                return breakDueByMs != null
-                  ? `WORK — BREAK DUE BY ${new Date(breakDueByMs).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true })}`
-                  : "WORK — BREAK DUE";
+                const timeStr =
+                  breakDueByMs != null
+                    ? new Date(breakDueByMs).toLocaleTimeString("en-AU", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : null;
+                return timeStr != null
+                  ? `CURRENT ACTIVITY WORK - BREAK DUE BY ${timeStr}`
+                  : "CURRENT ACTIVITY WORK - BREAK DUE";
               })()}
               {contextualBar.type === "break" && (() => {
                 const completeByMs = getBreakCompleteByTime(events, Date.now());
-                return completeByMs != null
-                  ? `BREAK COMPLETE BY ${new Date(completeByMs).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true })}`
-                  : "BREAK — 20 min";
+                const timeStr =
+                  completeByMs != null
+                    ? new Date(completeByMs).toLocaleTimeString("en-AU", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : null;
+                return timeStr != null
+                  ? `CURRENT ACTIVITY BREAK - COMPLETE BY ${timeStr}`
+                  : "CURRENT ACTIVITY BREAK - 20 MIN MINIMUM";
               })()}
             </span>
-            <span className="text-xs font-mono text-slate-600 dark:text-slate-300 tabular-nums">
-              {null}
-            </span>
           </div>
-          <div
-            className={cn(
-              "relative h-8 rounded-lg overflow-hidden",
-              complianceTone === "default"
-                ? "bg-slate-100 dark:bg-slate-700"
-                : "bg-black/15 dark:bg-black/25 ring-1 ring-black/10 dark:ring-white/20"
-            )}
-          >
-            <div className="absolute inset-0 rounded-lg">
-              <div
-                className="absolute inset-y-0 left-0 rounded-lg transition-all duration-300"
-                style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
-              />
-              {contextualBar.type === "work" && [1, 2, 3, 4].map((i) => (
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className={cn(
+                "relative h-8 min-h-8 flex-1 min-w-0 rounded-lg overflow-hidden",
+                complianceTone === "default"
+                  ? "bg-slate-100 dark:bg-slate-700"
+                  : "bg-black/15 dark:bg-black/25 ring-1 ring-black/10 dark:ring-white/20"
+              )}
+            >
+              <div className="absolute inset-0 rounded-lg">
                 <div
-                  key={i}
-                  className="absolute top-0 bottom-0 w-px bg-white/60"
-                  style={{ left: `${(i / 5) * 100}%` }}
+                  className="absolute inset-y-0 left-0 rounded-lg transition-all duration-300"
+                  style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
+                />
+                {contextualBar.type === "work" && [1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="absolute top-0 bottom-0 w-px bg-white/60"
+                    style={{ left: `${(i / 5) * 100}%` }}
+                    aria-hidden
+                  />
+                ))}
+                {contextualBar.type === "break" && [1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="absolute top-0 bottom-0 w-px bg-white/60"
+                    style={{ left: `${(i / 4) * 100}%` }}
+                    aria-hidden
+                  />
+                ))}
+              </div>
+              {contextualBar.pct < 100 && (
+                <div
+                  className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-black dark:bg-white border-2 border-slate-400 dark:border-slate-300 shadow-md pointer-events-none z-10"
+                  style={{ left: `${contextualBar.pct}%` }}
+                  title="Current progress"
                   aria-hidden
                 />
-              ))}
-              {contextualBar.type === "break" && [1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="absolute top-0 bottom-0 w-px bg-white/60"
-                  style={{ left: `${(i / 4) * 100}%` }}
-                  aria-hidden
-                />
-              ))}
+              )}
             </div>
-            {contextualBar.pct < 100 && (
-              <div
-                className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-black dark:bg-white border-2 border-slate-400 dark:border-slate-300 shadow-md pointer-events-none z-10"
-                style={{ left: `${contextualBar.pct}%` }}
-                title="Current progress"
-                aria-hidden
-              />
-            )}
+            <span
+              className="h-8 min-h-8 flex shrink-0 items-center font-mono font-semibold tabular-nums leading-none text-[2rem] tracking-tight"
+              title="Elapsed time this work / break"
+              aria-live="polite"
+            >
+              {formatElapsedBarDisplay(contextualBar.elapsed)}
+            </span>
           </div>
         </div>
       )}
