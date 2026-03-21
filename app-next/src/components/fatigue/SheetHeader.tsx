@@ -57,15 +57,15 @@ export default function SheetHeader({
           <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block">
             Driver Type
           </Label>
-          <div className="flex rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden dark:border-slate-500 dark:bg-slate-950 dark:p-1 dark:gap-1">
             <button
               type="button"
               disabled={readOnly}
               onClick={() => handleChange("driver_type", "solo")}
-              className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
+              className={`min-w-[4.5rem] px-4 py-1.5 text-xs font-semibold transition-colors rounded-none dark:rounded-md ${
                 driverType === "solo"
-                  ? "bg-slate-900 dark:bg-slate-600 text-white dark:text-slate-100"
-                  : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 dark:shadow-md dark:ring-1 dark:ring-white/30"
+                  : "bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-900/40 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
               }`}
             >
               Solo
@@ -74,10 +74,10 @@ export default function SheetHeader({
               type="button"
               disabled={readOnly}
               onClick={() => handleChange("driver_type", "two_up")}
-              className={`px-4 py-1.5 text-xs font-semibold transition-colors border-l border-slate-200 dark:border-slate-600 ${
+              className={`min-w-[4.5rem] px-4 py-1.5 text-xs font-semibold transition-colors border-l border-slate-200 dark:border-0 rounded-none dark:rounded-md ${
                 driverType === "two_up"
-                  ? "bg-slate-900 dark:bg-slate-600 text-white dark:text-slate-100"
-                  : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 dark:shadow-md dark:ring-1 dark:ring-white/30"
+                  : "bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-900/40 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
               }`}
             >
               Two-Up
