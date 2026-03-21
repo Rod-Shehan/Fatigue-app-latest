@@ -17,3 +17,15 @@ export function getJurisdictionOptions(): { value: JurisdictionCode; label: stri
   }
   return base;
 }
+
+/** Human-readable label for PDF / roadside snapshot (not necessarily equal to dropdown text). */
+export function jurisdictionDisplayLabel(code: JurisdictionCode): string {
+  switch (code) {
+    case "WA_OSH_3132":
+      return "Western Australia — OSH Reg 3.132";
+    case "NHVR_PROVISIONAL":
+      return "NHVR BFM (provisional — not certified EWD)";
+    default:
+      return code;
+  }
+}

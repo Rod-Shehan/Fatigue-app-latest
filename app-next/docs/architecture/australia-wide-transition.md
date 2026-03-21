@@ -16,7 +16,7 @@ This document supports **ADR 0001** (`docs/adr/0001-multi-jurisdiction-fatigue-a
 | **B** | `getComplianceEngine()` / `waOsh3132Engine` — WA delegates to `runComplianceChecks`; **API routes** use the engine (**S8** complete, `docs/roadmap/approval-gates.md`) | None unless agreed |
 | **C (partial)** | **Sheet-level** jurisdiction (`jurisdictionCode` + header **Fatigue rules** selector) | Org/driver defaults deferred |
 | **D (S5)** | **NHVR provisional** (`NHVR_PROVISIONAL`) behind env flags — WA math + non-EWD warning; see `docs/architecture/nhvr-provisional-pack.md` | Extra dropdown row when enabled |
-| **E** | Officer/export enhancements (PDF, read-only summary) | Copy/layout **requires approval** if “fundamental” |
+| **E (partial)** | PDF roadside summary + optional QR snapshot (**S6**) | Disclaimer text in `roadside-pdf.ts` |
 
 ## Explicit approval required before
 
@@ -37,4 +37,5 @@ This document supports **ADR 0001** (`docs/adr/0001-multi-jurisdiction-fatigue-a
 - `docs/product/positioning.md` — approved positioning (**S1**)  
 - `docs/architecture/event-model.md` — events vs aggregated displays (**S3**)  
 - `docs/architecture/nhvr-provisional-pack.md` — NHVR provisional pack (**S5**)  
+- `docs/architecture/roadside-pdf-s6.md` — roadside PDF + QR snapshot (**S6**)  
 - `src/lib/jurisdiction/compliance-engine.ts` — Phase B entry point

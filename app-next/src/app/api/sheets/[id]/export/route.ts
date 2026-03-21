@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import type { jsPDF } from "jspdf";
 import { getSessionForSheetAccess, canAccessSheet } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { prepareRoadsidePdfExtras } from "@/lib/roadside-pdf-extras";
+import { ROADSIDE_PDF_DISCLAIMER } from "@/lib/roadside-pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -253,6 +256,54 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+type RoadsidePdfPayload = {
+  driverName: string;
+  weekStarting: string;
+  jurisdictionLabel: string;
+  violations: { day: string; message: string }[];
+  warnings: { day: string; message: string }[];
+  disclaimer: string;
+  qrDataUrl?: string;
+};
+
+function buildRoadsideSectionHtml(r: RoadsidePdfPayload): string {
+  const vList = r.violations
+    .slice(0, 14)
+    .map((x) => `<li><strong>${escapeHtml(x.day)}</strong>: ${escapeHtml(x.message)}</li>`)
+    .join("");
+  const wList = r.warnings
+    .slice(0, 14)
+    .map((x) => `<li><strong>${escapeHtml(x.day)}</strong>: ${escapeHtml(x.message)}</li>`)
+    .join("");
+  const moreV =
+    r.violations.length > 14 ? `<p class="roadMore">… and ${r.violations.length - 14} more</p>` : "";
+  const moreW =
+    r.warnings.length > 14 ? `<p class="roadMore">… and ${r.warnings.length - 14} more</p>` : "";
+  const qr = r.qrDataUrl
+    ? `<div class="qrWrap"><img class="qrImg" src="${r.qrDataUrl}" alt="QR code" /><div class="qrCap">Read-only snapshot (link expires)</div></div>`
+    : "";
+  return `
+  <section class="roadside">
+    <h2>Roadside compliance summary</h2>
+    <p class="roadMeta"><strong>Driver:</strong> ${escapeHtml(r.driverName)} &nbsp;|&nbsp; <strong>Week starting:</strong> ${escapeHtml(r.weekStarting)} &nbsp;|&nbsp; <strong>Fatigue rules:</strong> ${escapeHtml(r.jurisdictionLabel)}</p>
+    <p class="roadCounts"><strong>Violations:</strong> ${r.violations.length} &nbsp;&nbsp; <strong>Warnings:</strong> ${r.warnings.length}</p>
+    <div class="roadCols">
+      <div class="roadCol">
+        <h3>Violations</h3>
+        <ul class="roadList">${vList || `<li class="roadEmpty">None</li>`}</ul>
+        ${moreV}
+      </div>
+      <div class="roadCol">
+        <h3>Warnings</h3>
+        <ul class="roadList">${wList || `<li class="roadEmpty">None</li>`}</ul>
+        ${moreW}
+      </div>
+    </div>
+    ${qr}
+    <p class="roadDisclaimer">${escapeHtml(r.disclaimer)}</p>
+  </section>`;
+}
+
 function renderPdfHtml(opts: {
   sheet: {
     driver_name: string;
@@ -274,8 +325,9 @@ function renderPdfHtml(opts: {
   };
   todayStr: string;
   generatedAtLabel: string;
+  roadside?: RoadsidePdfPayload;
 }) {
-  const { sheet, todayStr, generatedAtLabel } = opts;
+  const { sheet, todayStr, generatedAtLabel, roadside } = opts;
   const dayList = (sheet.days || []).slice(0, 7);
   while (dayList.length < 7) dayList.push({});
 
@@ -412,6 +464,21 @@ function renderPdfHtml(opts: {
         .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
         .empty { color:#9ca3af; font-style: italic; }
         .more { font-size: 10px; color:#6b7280; margin-left: 100px; margin-top: 2px; }
+        .roadside { margin: 12px 0 16px; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; break-inside: avoid; }
+        .roadside h2 { font-size: 15px; font-weight: 800; margin: 0 0 8px; color: #0f172a; }
+        .roadside h3 { font-size: 11px; font-weight: 800; margin: 0 0 4px; color: #334155; }
+        .roadMeta { font-size: 10px; color: #334155; margin: 0 0 6px; line-height: 1.35; }
+        .roadCounts { font-size: 11px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
+        .roadCols { display: flex; gap: 12px; align-items: flex-start; }
+        .roadCol { flex: 1; min-width: 0; }
+        .roadList { margin: 0; padding-left: 14px; font-size: 9.5px; color: #1e293b; }
+        .roadList li { margin-bottom: 2px; }
+        .roadEmpty { color: #94a3b8; font-style: italic; list-style: none; margin-left: -14px; }
+        .roadMore { font-size: 9px; color: #64748b; margin: 4px 0 0; }
+        .qrWrap { display: flex; flex-direction: column; align-items: flex-start; margin-top: 10px; gap: 4px; }
+        .qrImg { width: 120px; height: 120px; image-rendering: pixelated; }
+        .qrCap { font-size: 9px; color: #64748b; }
+        .roadDisclaimer { font-size: 8.5px; color: #475569; margin: 10px 0 0; line-height: 1.35; }
       </style>
     </head>
     <body>
@@ -424,6 +491,7 @@ function renderPdfHtml(opts: {
           <div class="generated">Generated: ${escapeHtml(generatedAtLabel)}</div>
         </div>
       </div>
+      ${roadside ? buildRoadsideSectionHtml(roadside) : ""}
       ${dayBlocks}
     </body>
   </html>`;
@@ -434,6 +502,87 @@ function getIsoDate(weekStarting: string | null, dayIndex: number): string {
   const [y, m, d] = weekStarting.split("-").map(Number);
   const date = new Date(y, m - 1, d + dayIndex);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** jsPDF fallback: roadside block below title header. */
+function renderRoadsideJsPDF(
+  doc: jsPDF,
+  margin: number,
+  colW: number,
+  yStart: number,
+  roadside: RoadsidePdfPayload
+): number {
+  let y = yStart;
+  if (y > 240) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setTextColor(30, 30, 30);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Roadside compliance summary", margin, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  const meta = `Driver: ${roadside.driverName}  |  Week: ${roadside.weekStarting}  |  Rules: ${roadside.jurisdictionLabel}`;
+  const metaLines = doc.splitTextToSize(meta, colW);
+  doc.text(metaLines, margin, y);
+  y += metaLines.length * 3.6 + 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(`Violations: ${roadside.violations.length}    Warnings: ${roadside.warnings.length}`, margin, y);
+  y += 5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Violations", margin, y);
+  y += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  const vText = roadside.violations
+    .slice(0, 12)
+    .map((v) => `• ${v.day}: ${v.message}`)
+    .join("\n");
+  const vLines = doc.splitTextToSize(vText || "(none)", colW);
+  doc.text(vLines, margin, y);
+  y += vLines.length * 3.2 + 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Warnings", margin, y);
+  y += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  const wText = roadside.warnings
+    .slice(0, 12)
+    .map((w) => `• ${w.day}: ${w.message}`)
+    .join("\n");
+  const wLines = doc.splitTextToSize(wText || "(none)", colW);
+  doc.text(wLines, margin, y);
+  y += wLines.length * 3.2 + 4;
+  if (roadside.qrDataUrl?.startsWith("data:image/png;base64,")) {
+    const b64 = roadside.qrDataUrl.replace(/^data:image\/png;base64,/, "");
+    if (y > 220) {
+      doc.addPage();
+      y = 20;
+    }
+    try {
+      doc.addImage(b64, "PNG", margin, y, 28, 28);
+    } catch {
+      /* ignore */
+    }
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Read-only snapshot (link expires)", margin, y + 32);
+    y += 38;
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(70, 70, 70);
+  const disc = doc.splitTextToSize(roadside.disclaimer, colW);
+  doc.text(disc, margin, y);
+  y += disc.length * 3.5 + 8;
+  return y;
 }
 
 export async function GET(
@@ -492,6 +641,19 @@ export async function GET(
       },
     });
 
+    const roadsideExtras = await prepareRoadsidePdfExtras(prisma, row, id);
+    const rv = roadsideExtras.results.filter((r) => r.type === "violation");
+    const rw = roadsideExtras.results.filter((r) => r.type === "warning");
+    const roadsidePayload: RoadsidePdfPayload = {
+      driverName: row.driverName,
+      weekStarting: row.weekStarting,
+      jurisdictionLabel: roadsideExtras.jurisdictionLabel,
+      violations: rv.map((v) => ({ day: v.day, message: v.message })),
+      warnings: rw.map((w) => ({ day: w.day, message: w.message })),
+      disclaimer: ROADSIDE_PDF_DISCLAIMER,
+      qrDataUrl: roadsideExtras.qrDataUrl,
+    };
+
     // Prefer server-side Chromium PDF (WYSIWYG). Fallback to jsPDF if Chromium isn't available.
     try {
       const [{ default: chromium }, puppeteer] = await Promise.all([
@@ -515,6 +677,7 @@ export async function GET(
         },
         todayStr,
         generatedAtLabel,
+        roadside: roadsidePayload,
       });
 
       const browser = await puppeteer.launch({
@@ -592,6 +755,8 @@ export async function GET(
       18,
       { align: "right" }
     );
+
+    y = renderRoadsideJsPDF(doc, margin, colW, y, roadsidePayload);
 
     const dayList = (sheet.days || []).slice(0, 7);
     while (dayList.length < 7) dayList.push({});
