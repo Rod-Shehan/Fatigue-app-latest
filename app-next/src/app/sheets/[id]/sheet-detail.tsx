@@ -205,7 +205,6 @@ export function SheetDetail({
   sheetDataRef.current = sheetData;
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayCardsRef = useRef<HTMLDivElement>(null);
-  const currentDayCardRef = useRef<HTMLDivElement | null>(null);
   /** One ref per day card (e.g. scroll to current day from LogBar) */
   const dayCardElsRef = useRef<(HTMLDivElement | null)[]>([]);
   const isDirtyRef = useRef(isDirty);
@@ -232,10 +231,6 @@ export function SheetDetail({
     () => getCurrentDayIndex(sheetData.week_starting),
     [sheetData.week_starting, now]
   );
-
-  useEffect(() => {
-    currentDayCardRef.current = dayCardElsRef.current[currentDayIndex] ?? null;
-  }, [currentDayIndex, sheetData.days.length, sheetData.week_starting]);
 
   const todayYmd = useMemo(() => getTodayLocalDateString(), [now]);
 
@@ -399,6 +394,17 @@ export function SheetDetail({
   const scrollToCompliance = useCallback(() => {
     document.getElementById("compliance-check")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
+
+  /** Scroll after LogBar modal closes so layout/refs are stable (Start shift blocked → "Go to today's card"). */
+  const scrollToCurrentDayCard = useCallback(() => {
+    const run = () => {
+      const el =
+        dayCardElsRef.current[currentDayIndex] ??
+        (typeof document !== "undefined" ? document.getElementById(`fatigue-day-${currentDayIndex}`) : null);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.setTimeout(run, 120);
+  }, [currentDayIndex]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: Partial<FatigueSheet>) => {
@@ -706,7 +712,7 @@ export function SheetDetail({
             leadingIcon={<FileText className="w-5 h-5" />}
             workRelevantComplianceMessages={prospectiveWorkWarnings}
             onAssumeIdle={handleAssumeIdle}
-            onStartShiftBlocked={() => currentDayCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            onStartShiftBlocked={scrollToCurrentDayCard}
             currentDayDisplay={getDayWithCarriedOverCardInfo(sheetData.days, currentDayIndex, sheetData.week_starting)}
             driverType={sheetData.driver_type}
             primaryDriverName={sheetData.driver_name}
@@ -926,6 +932,7 @@ export function SheetDetail({
             {sheetData.days.map((day, idx) => (
                 <div
                   key={idx}
+                  id={`fatigue-day-${idx}`}
                   ref={(el) => {
                     dayCardElsRef.current[idx] = el;
                   }}
