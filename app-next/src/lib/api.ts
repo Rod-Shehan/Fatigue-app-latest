@@ -32,7 +32,15 @@ async function fetchApi<T>(path: string, options?: FetchApiOptions): Promise<T> 
   return res.json() as Promise<T>;
 }
 
-export type Driver = { id: string; name: string; email?: string | null; licence_number?: string; is_active: boolean };
+export type Driver = {
+  id: string;
+  name: string;
+  email?: string | null;
+  licence_number?: string;
+  /** WA CVD medical certificate expiry (YYYY-MM-DD), optional. */
+  cvd_medical_expiry?: string | null;
+  is_active: boolean;
+};
 export type Rego = { id: string; label: string; sort_order: number };
 export type DayData = {
   day_label?: string;
@@ -161,10 +169,25 @@ export const api = {
   },
   drivers: {
     list: () => fetchApi<Driver[]>("/api/drivers"),
-    create: (data: { name: string; email?: string; licence_number?: string; is_active?: boolean; password?: string }) =>
-      fetchApi<Driver>("/api/drivers", { method: "POST", body: data }),
-    update: (id: string, data: { is_active?: boolean; name?: string; email?: string | null; licence_number?: string | null; password?: string }) =>
-      fetchApi<Driver>(`/api/drivers/${id}`, { method: "PATCH", body: data }),
+    create: (data: {
+      name: string;
+      email?: string;
+      licence_number?: string;
+      cvd_medical_expiry?: string | null;
+      is_active?: boolean;
+      password?: string;
+    }) => fetchApi<Driver>("/api/drivers", { method: "POST", body: data }),
+    update: (
+      id: string,
+      data: {
+        is_active?: boolean;
+        name?: string;
+        email?: string | null;
+        licence_number?: string | null;
+        cvd_medical_expiry?: string | null;
+        password?: string;
+      }
+    ) => fetchApi<Driver>(`/api/drivers/${id}`, { method: "PATCH", body: data }),
     delete: (id: string) =>
       fetchApi<void>(`/api/drivers/${id}`, { method: "DELETE" }),
   },

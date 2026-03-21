@@ -10,12 +10,14 @@ import { PageHeader } from "@/components/PageHeader";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, UserCheck, UserX, Loader2, Users, Pencil } from "lucide-react";
+import { getCvdMedicalBannerKind } from "@/lib/cvd-medical";
 
 export function DriversList() {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newLicence, setNewLicence] = useState("");
+  const [newCvdMedical, setNewCvdMedical] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -23,6 +25,7 @@ export function DriversList() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editLicence, setEditLicence] = useState("");
+  const [editCvdMedical, setEditCvdMedical] = useState("");
   const [editActive, setEditActive] = useState(true);
   const [editPassword, setEditPassword] = useState("");
 
@@ -37,13 +40,19 @@ export function DriversList() {
   );
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; email?: string; licence_number?: string; password?: string }) =>
-      api.drivers.create({ ...data, is_active: true }),
+    mutationFn: (data: {
+      name: string;
+      email?: string;
+      licence_number?: string;
+      cvd_medical_expiry?: string | null;
+      password?: string;
+    }) => api.drivers.create({ ...data, is_active: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       setNewName("");
       setNewEmail("");
       setNewLicence("");
+      setNewCvdMedical("");
       setNewPassword("");
     },
   });
@@ -53,11 +62,20 @@ export function DriversList() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["drivers"] }),
   });
   const updateMutation = useMutation({
-    mutationFn: (payload: { id: string; name: string; email: string; licence_number: string; is_active: boolean; password?: string }) =>
+    mutationFn: (payload: {
+      id: string;
+      name: string;
+      email: string;
+      licence_number: string;
+      cvd_medical_expiry: string | null;
+      is_active: boolean;
+      password?: string;
+    }) =>
       api.drivers.update(payload.id, {
         name: payload.name,
         email: payload.email,
         licence_number: payload.licence_number || null,
+        cvd_medical_expiry: payload.cvd_medical_expiry,
         is_active: payload.is_active,
         ...(payload.password && payload.password.trim().length > 0 ? { password: payload.password } : null),
       }),
@@ -84,6 +102,7 @@ export function DriversList() {
       name: newName.trim(),
       email: newEmail.trim() ? newEmail.trim() : undefined,
       licence_number: newLicence.trim(),
+      cvd_medical_expiry: newCvdMedical.trim() ? newCvdMedical.trim() : null,
       password: newPassword.trim() ? newPassword : undefined,
     });
   }
@@ -95,6 +114,7 @@ export function DriversList() {
     setEditName(d.name ?? "");
     setEditEmail(d.email ?? "");
     setEditLicence(d.licence_number ?? "");
+    setEditCvdMedical(d.cvd_medical_expiry ?? "");
     setEditActive(!!d.is_active);
     setEditPassword("");
     setEditOpen(true);
@@ -112,7 +132,7 @@ export function DriversList() {
           backHref="/sheets"
           backLabel="Your Sheets"
           title="Approved Drivers"
-          subtitle="Manage the driver roster"
+          subtitle="Manage the driver roster and optional WA CVD medical expiry dates"
           icon={<Users className="w-5 h-5" />}
         />
         <form
@@ -139,6 +159,13 @@ export function DriversList() {
             value={newLicence}
             onChange={(e) => setNewLicence(e.target.value)}
             className="flex-1"
+          />
+          <Input
+            type="date"
+            value={newCvdMedical}
+            onChange={(e) => setNewCvdMedical(e.target.value)}
+            className="flex-1 min-w-[11rem]"
+            title="WA CVD medical certificate expiry (optional)"
           />
           <Input
             placeholder="Password (optional)"
@@ -182,6 +209,17 @@ export function DriversList() {
                 )}
                 {driver.licence_number && (
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{driver.licence_number}</p>
+                )}
+                {driver.cvd_medical_expiry && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    CVD medical: {driver.cvd_medical_expiry}
+                  </p>
+                )}
+                {getCvdMedicalBannerKind(driver.cvd_medical_expiry) === "expired" && (
+                  <p className="text-[10px] font-semibold text-red-600 dark:text-red-400">CVD medical expired</p>
+                )}
+                {getCvdMedicalBannerKind(driver.cvd_medical_expiry) === "soon" && (
+                  <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">CVD medical renew within 30 days</p>
                 )}
               </div>
               <span
@@ -245,6 +283,7 @@ export function DriversList() {
                   name: editName.trim(),
                   email: editEmail.trim(),
                   licence_number: editLicence.trim(),
+                  cvd_medical_expiry: editCvdMedical.trim() ? editCvdMedical.trim() : null,
                   is_active: editActive,
                   password: editPassword.trim() ? editPassword : undefined,
                 });
@@ -261,6 +300,13 @@ export function DriversList() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">Licence no. (optional)</Label>
                 <Input value={editLicence} onChange={(e) => setEditLicence(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
+                  WA CVD medical expiry (optional)
+                </Label>
+                <Input type="date" value={editCvdMedical} onChange={(e) => setEditCvdMedical(e.target.value)} />
+                <p className="text-[11px] text-slate-400">Commercial Vehicle Driver medical certificate — for in-app reminders only.</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">Set/reset password</Label>

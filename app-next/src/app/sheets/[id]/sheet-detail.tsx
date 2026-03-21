@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api, type ComplianceCheckResult, type FatigueSheet, type DayData } from "@/lib/api";
+import { api, type ComplianceCheckResult, type FatigueSheet, type DayData, type Driver } from "@/lib/api";
 import {
   getSheetOfflineFirst,
   updateSheetOfflineFirst,
@@ -44,6 +44,7 @@ import {
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/PageHeader";
 import SheetHeader from "@/components/fatigue/SheetHeader";
+import { CvdMedicalBanner } from "@/components/fatigue/CvdMedicalBanner";
 import DayEntry from "@/components/fatigue/DayEntry";
 import CompliancePanel from "@/components/fatigue/CompliancePanel";
 import SignatureDialog from "@/components/fatigue/SignatureDialog";
@@ -263,6 +264,23 @@ export function SheetDetail({
     queryKey: ["regos"],
     queryFn: () => listRegosOfflineFirst(),
   });
+
+  const { data: rosterDrivers = [] } = useQuery({
+    queryKey: ["drivers"],
+    queryFn: () => api.drivers.list(),
+  });
+
+  const matchedRosterPrimary = useMemo(() => {
+    const n = sheetData.driver_name?.trim().toLowerCase();
+    if (!n) return null;
+    return rosterDrivers.find((d: Driver) => d.name.toLowerCase() === n) ?? null;
+  }, [rosterDrivers, sheetData.driver_name]);
+
+  const matchedRosterSecond = useMemo(() => {
+    const n = sheetData.second_driver?.trim().toLowerCase();
+    if (!n) return null;
+    return rosterDrivers.find((d: Driver) => d.name.toLowerCase() === n) ?? null;
+  }, [rosterDrivers, sheetData.second_driver]);
 
   useEffect(() => {
     if (sheet) {
@@ -873,6 +891,22 @@ export function SheetDetail({
           <div ref={dayCardsRef} className="flex-1 space-y-4">
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 md:p-5">
               <SheetHeader sheetData={sheetData} onChange={handleHeaderChange} />
+              {matchedRosterPrimary && (
+                <CvdMedicalBanner
+                  driverLabel={matchedRosterPrimary.name}
+                  roleLabel={sheetData.driver_type === "two_up" ? "Primary" : undefined}
+                  expiryYmd={matchedRosterPrimary.cvd_medical_expiry}
+                  canAccessManager={canAccessManager}
+                />
+              )}
+              {sheetData.driver_type === "two_up" && matchedRosterSecond && (
+                <CvdMedicalBanner
+                  driverLabel={matchedRosterSecond.name}
+                  roleLabel="Second"
+                  expiryYmd={matchedRosterSecond.cvd_medical_expiry}
+                  canAccessManager={canAccessManager}
+                />
+              )}
             </motion.div>
             {sheetData.days.map((day, idx) => (
                 <div

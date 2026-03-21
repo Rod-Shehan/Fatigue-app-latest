@@ -4,6 +4,7 @@ import { getManagerSession } from "@/lib/auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { isInvalidCvdMedicalInput, parseCvdMedicalExpiryInput } from "@/lib/cvd-medical";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -18,6 +19,7 @@ export async function GET() {
         name: d.name,
         email: d.email,
         licence_number: d.licenceNumber,
+        cvd_medical_expiry: d.cvdMedicalExpiry ? d.cvdMedicalExpiry.toISOString().slice(0, 10) : null,
         is_active: d.isActive,
       }))
     );
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
   if (!manager) return NextResponse.json({ error: "Forbidden: manager only" }, { status: 403 });
   try {
     const body = await req.json();
-    const { name, email, licence_number, is_active, password } = body;
+    const { name, email, licence_number, is_active, password, cvd_medical_expiry } = body;
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "name required" }, { status: 400 });
     }
@@ -52,11 +54,17 @@ export async function POST(req: Request) {
     if (password !== undefined && passwordStr.trim().length > 0 && passwordStr.trim().length < 6) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
+    if (isInvalidCvdMedicalInput(cvd_medical_expiry)) {
+      return NextResponse.json({ error: "cvd_medical_expiry must be YYYY-MM-DD or empty" }, { status: 400 });
+    }
+    const cvd = parseCvdMedicalExpiryInput(cvd_medical_expiry);
+
     const driver = await prisma.driver.create({
       data: {
         name: name.trim(),
         email: normalizedEmail,
         licenceNumber: licence_number?.trim() ?? null,
+        cvdMedicalExpiry: cvd ?? null,
         isActive: is_active ?? true,
       },
     });
@@ -77,6 +85,7 @@ export async function POST(req: Request) {
       name: driver.name,
       email: driver.email,
       licence_number: driver.licenceNumber,
+      cvd_medical_expiry: driver.cvdMedicalExpiry ? driver.cvdMedicalExpiry.toISOString().slice(0, 10) : null,
       is_active: driver.isActive,
     });
   } catch (e) {

@@ -4,6 +4,7 @@ import { getManagerSession } from "@/lib/auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { isInvalidCvdMedicalInput, parseCvdMedicalExpiryInput } from "@/lib/cvd-medical";
 
 export async function PATCH(
   _req: Request,
@@ -16,7 +17,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await _req.json();
-    const { is_active, email, name, licence_number, password } = body;
+    const { is_active, email, name, licence_number, password, cvd_medical_expiry } = body;
 
     const normalizedEmail =
       email === undefined
@@ -50,11 +51,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
+    if (cvd_medical_expiry !== undefined) {
+      if (isInvalidCvdMedicalInput(cvd_medical_expiry)) {
+        return NextResponse.json({ error: "cvd_medical_expiry must be YYYY-MM-DD or empty" }, { status: 400 });
+      }
+    }
+    const cvdParsed = parseCvdMedicalExpiryInput(cvd_medical_expiry);
+
     const data: Parameters<typeof prisma.driver.update>[0]["data"] = {
       ...(is_active !== undefined ? { isActive: is_active } : null),
       ...(normalizedEmail !== undefined ? { email: normalizedEmail } : null),
       ...(trimmedName !== undefined ? { name: trimmedName } : null),
       ...(normalizedLicence !== undefined ? { licenceNumber: normalizedLicence } : null),
+      ...(cvd_medical_expiry !== undefined ? { cvdMedicalExpiry: cvdParsed ?? null } : null),
     } as Parameters<typeof prisma.driver.update>[0]["data"];
 
     const driver = await prisma.driver.update({
@@ -78,6 +87,7 @@ export async function PATCH(
       name: driver.name,
       email: driver.email,
       licence_number: driver.licenceNumber,
+      cvd_medical_expiry: driver.cvdMedicalExpiry ? driver.cvdMedicalExpiry.toISOString().slice(0, 10) : null,
       is_active: driver.isActive,
     });
   } catch (e) {
