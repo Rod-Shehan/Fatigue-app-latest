@@ -43,9 +43,8 @@ export const authOptions = {
           return { id: existing.id, email: existing.email, name: existing.name };
         }
 
-        // Temporary/testing: allow any non-empty email to sign in without a password
-        // only for users without a manager-set password.
-        if (password === "") {
+        // Dev only: email + empty password (no manager-set password). Never in production.
+        if (process.env.NODE_ENV === "development" && password === "") {
           let user = existing;
           if (!user) {
             user = await prisma.user.create({
