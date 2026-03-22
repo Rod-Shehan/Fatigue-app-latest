@@ -40,6 +40,8 @@ import {
   startOfWeekSunday,
   toYMD,
 } from "@/app/manager/manager-month-calendar";
+import { getPreviousWeekSunday } from "@/lib/weeks";
+import type { ManagerComplianceItem } from "@/lib/api";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -64,6 +66,70 @@ function formatSheetLabel(sheet: FatigueSheet): string {
       })
     : "—";
   return `${driver} — week of ${week}`;
+}
+
+type ViolationLine = { sheetId: string; driver: string; day: string; message: string };
+
+function violationLinesForWeek(
+  items: ManagerComplianceItem[] | undefined,
+  weekStarting: string
+): ViolationLine[] {
+  if (!items?.length || !weekStarting) return [];
+  const filtered = items.filter((i) => i.week_starting === weekStarting);
+  const lines: ViolationLine[] = [];
+  for (const item of filtered) {
+    for (const r of item.results) {
+      if (r.type === "violation") {
+        lines.push({
+          sheetId: item.sheetId,
+          driver: item.driver_name,
+          day: r.day,
+          message: r.message,
+        });
+      }
+    }
+  }
+  return lines;
+}
+
+function ViolationListBlock({
+  lines,
+  emptyLabel,
+}: {
+  lines: ViolationLine[];
+  emptyLabel: string;
+}) {
+  if (lines.length === 0) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border border-violet-200/80 bg-white/70 px-3 py-2.5 text-sm text-slate-600 dark:border-violet-800/40 dark:bg-slate-900/50 dark:text-slate-300">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+        <span>{emptyLabel}</span>
+      </div>
+    );
+  }
+  return (
+    <ul className="divide-y divide-violet-200/70 dark:divide-violet-800/50">
+      {lines.map((line, idx) => (
+        <li
+          key={`${line.sheetId}-${idx}-${line.day}`}
+          className="flex flex-col gap-1 py-3 first:pt-0 sm:flex-row sm:items-start sm:gap-4"
+        >
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:w-[min(100%,14rem)] sm:shrink-0">
+            <Link
+              href={`/sheets/${line.sheetId}`}
+              className="text-sm font-semibold text-violet-950 underline-offset-2 hover:underline dark:text-violet-100"
+            >
+              {line.driver || "—"}
+            </Link>
+            <span className="text-[11px] font-medium uppercase tracking-wide text-violet-700/85 dark:text-violet-400/90">
+              {line.day}
+            </span>
+          </div>
+          <p className="min-w-0 flex-1 text-sm leading-snug text-slate-700 dark:text-slate-200">{line.message}</p>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function formatDayDateLabel(weekStarting: string, dayIndex: number): string {
@@ -236,29 +302,25 @@ export function ManagerView() {
   /** Week used for the violations snapshot (selected work week, or calendar anchor). */
   const weekForSnapshot = activeWeekStarting || calendarWeekAnchor;
 
+  const prevWeekForSnapshot = useMemo(
+    () => (weekForSnapshot ? getPreviousWeekSunday(weekForSnapshot) : ""),
+    [weekForSnapshot]
+  );
+
   const { data: managerCompliance, isLoading: complianceLoading } = useQuery({
     queryKey: ["manager", "compliance"],
     queryFn: () => api.manager.compliance(),
   });
 
-  const weekViolationLines = useMemo(() => {
-    if (!managerCompliance?.items?.length || !weekForSnapshot) return [];
-    const items = managerCompliance.items.filter((i) => i.week_starting === weekForSnapshot);
-    const lines: { sheetId: string; driver: string; day: string; message: string }[] = [];
-    for (const item of items) {
-      for (const r of item.results) {
-        if (r.type === "violation") {
-          lines.push({
-            sheetId: item.sheetId,
-            driver: item.driver_name,
-            day: r.day,
-            message: r.message,
-          });
-        }
-      }
-    }
-    return lines;
-  }, [managerCompliance, weekForSnapshot]);
+  const weekViolationLines = useMemo(
+    () => violationLinesForWeek(managerCompliance?.items, weekForSnapshot),
+    [managerCompliance, weekForSnapshot]
+  );
+
+  const prevWeekViolationLines = useMemo(
+    () => violationLinesForWeek(managerCompliance?.items, prevWeekForSnapshot),
+    [managerCompliance, prevWeekForSnapshot]
+  );
 
   const { data: selectedSheet, isLoading: sheetLoading } = useQuery({
     queryKey: ["sheet", selectedSheetId],
@@ -425,23 +487,15 @@ export function ManagerView() {
 
         <section
           className="mb-5 rounded-2xl border-2 border-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-4 shadow-sm shadow-violet-200/50 dark:border-violet-500/45 dark:from-violet-950/50 dark:via-slate-900 dark:to-sky-950/40 dark:shadow-violet-900/20 sm:p-5"
-          aria-label="Violations this work week"
+          aria-label="Compliance snapshot — this week and previous week violations"
         >
           <div className="mb-4 border-b border-violet-300/70 pb-4 dark:border-violet-700/50">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-400">
               Compliance snapshot
             </p>
-            <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
-                <h2 className="text-lg font-bold tracking-tight text-violet-950 dark:text-violet-100">
-                  This week — violations
-                </h2>
-              </div>
-              <span className="text-sm font-medium tabular-nums text-violet-800 dark:text-violet-300">
-                {formatWeekLabel(weekForSnapshot)}
-              </span>
-            </div>
+            <p className="mt-1 text-xs text-violet-800/80 dark:text-violet-300/80">
+              Selected work week and the Sunday week immediately before it.
+            </p>
           </div>
 
           {complianceLoading ? (
@@ -449,35 +503,44 @@ export function ManagerView() {
               <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               Loading compliance…
             </div>
-          ) : weekViolationLines.length === 0 ? (
-            <div className="flex items-start gap-2 rounded-lg border border-violet-200/80 bg-white/70 px-3 py-2.5 text-sm text-slate-600 dark:border-violet-800/40 dark:bg-slate-900/50 dark:text-slate-300">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-              <span>No violations recorded for this week across visible sheets.</span>
-            </div>
           ) : (
-            <ul className="divide-y divide-violet-200/70 dark:divide-violet-800/50">
-              {weekViolationLines.map((line, idx) => (
-                <li
-                  key={`${line.sheetId}-${idx}-${line.day}`}
-                  className="flex flex-col gap-1 py-3 first:pt-0 sm:flex-row sm:items-start sm:gap-4"
-                >
-                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:w-[min(100%,14rem)] sm:shrink-0">
-                    <Link
-                      href={`/sheets/${line.sheetId}`}
-                      className="text-sm font-semibold text-violet-950 underline-offset-2 hover:underline dark:text-violet-100"
-                    >
-                      {line.driver || "—"}
-                    </Link>
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-violet-700/85 dark:text-violet-400/90">
-                      {line.day}
-                    </span>
+            <div className="space-y-6">
+              <div>
+                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
+                    <h2 className="text-lg font-bold tracking-tight text-violet-950 dark:text-violet-100">
+                      This week — violations
+                    </h2>
                   </div>
-                  <p className="min-w-0 flex-1 text-sm leading-snug text-slate-700 dark:text-slate-200">
-                    {line.message}
-                  </p>
-                </li>
-              ))}
-            </ul>
+                  <span className="text-sm font-medium tabular-nums text-violet-800 dark:text-violet-300">
+                    {formatWeekLabel(weekForSnapshot)}
+                  </span>
+                </div>
+                <ViolationListBlock
+                  lines={weekViolationLines}
+                  emptyLabel="No violations recorded for this week across visible sheets."
+                />
+              </div>
+
+              <div className="border-t border-violet-300/70 pt-4 dark:border-violet-700/50">
+                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
+                    <h2 className="text-lg font-bold tracking-tight text-violet-950 dark:text-violet-100">
+                      Previous week — violations
+                    </h2>
+                  </div>
+                  <span className="text-sm font-medium tabular-nums text-violet-800 dark:text-violet-300">
+                    {formatWeekLabel(prevWeekForSnapshot)}
+                  </span>
+                </div>
+                <ViolationListBlock
+                  lines={prevWeekViolationLines}
+                  emptyLabel="No violations recorded for the previous week across visible sheets."
+                />
+              </div>
+            </div>
           )}
         </section>
 
