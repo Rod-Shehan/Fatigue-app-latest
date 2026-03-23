@@ -421,11 +421,12 @@ export function ManagerView() {
           }
         />
 
+        <div className="mb-6">
         <nav
-          className="mb-6 flex flex-col gap-5 md:flex-row md:flex-wrap md:items-stretch md:gap-0"
+          className="flex flex-col gap-5 md:flex-row md:flex-nowrap md:items-stretch md:gap-0 md:overflow-x-auto"
           aria-label="Manager shortcuts"
         >
-          <div className="space-y-2 md:pr-6">
+          <div className="space-y-2 shrink-0 md:pr-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
               Team &amp; fleet
             </p>
@@ -454,7 +455,7 @@ export function ManagerView() {
             aria-hidden="true"
           />
 
-          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:px-6">
+          <div className="space-y-2 shrink-0 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:px-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
               Map
             </p>
@@ -472,7 +473,7 @@ export function ManagerView() {
             aria-hidden="true"
           />
 
-          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6">
+          <div className="space-y-2 shrink-0 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
               Messages
             </p>
@@ -490,15 +491,15 @@ export function ManagerView() {
             aria-hidden="true"
           />
 
-          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6">
+          <div className="space-y-2 shrink-0 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
               Export
             </p>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="gap-2 text-slate-600 dark:text-slate-300 w-full sm:w-auto"
+                className="gap-2 text-slate-600 dark:text-slate-300"
                 disabled={!activeWeekStarting || sheetsForWeekExport.length === 0 || sheetsLoading}
                 title={
                   !activeWeekStarting ?
@@ -517,13 +518,15 @@ export function ManagerView() {
                 <Download className="w-4 h-4 shrink-0" />
                 Hours (CSV)
               </Button>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-md leading-snug">
-                Raw minutes per day for the selected work week (all drivers). For spreadsheets or payroll tools — not
-                legal, tax, or award advice. Fatigue compliance is separate from ATO record-keeping rules.
-              </p>
             </div>
           </div>
         </nav>
+        <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 leading-snug max-w-3xl">
+          <span className="font-medium text-slate-600 dark:text-slate-300">CSV export:</span> raw minutes per day for
+          the selected work week (all drivers). For spreadsheets or other tools — not legal, tax, or award advice.
+          Fatigue compliance is separate from ATO record-keeping rules.
+        </p>
+        </div>
 
         <section
           className="mb-5 rounded-2xl border-2 border-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-4 shadow-sm shadow-violet-200/50 dark:border-violet-500/45 dark:from-violet-950/50 dark:via-slate-900 dark:to-sky-950/40 dark:shadow-violet-900/20 sm:p-5"
