@@ -33,6 +33,7 @@ import {
   MessageSquare,
   XCircle,
   Calendar,
+  Download,
 } from "lucide-react";
 import {
   ManagerMonthCalendar,
@@ -40,7 +41,14 @@ import {
   startOfWeekSunday,
   toYMD,
 } from "@/app/manager/manager-month-calendar";
-import { getPreviousWeekSunday, getSheetDayDateString, parseLocalDate, sheetWeeksOverlap } from "@/lib/weeks";
+import {
+  getPreviousWeekSunday,
+  getSheetDayDateString,
+  getTodayLocalDateString,
+  parseLocalDate,
+  sheetWeeksOverlap,
+} from "@/lib/weeks";
+import { buildManagerHoursCsv, downloadManagerHoursCsv } from "@/lib/manager-hours-csv";
 import { last24hBreakToDatetimeLocalValue } from "@/lib/last-24h-break";
 import type { ManagerComplianceItem } from "@/lib/api";
 
@@ -309,6 +317,12 @@ export function ManagerView() {
     [managerCompliance, prevWeekForSnapshot]
   );
 
+  /** Sheets overlapping the selected work week (all drivers — not narrowed by driver/rego filters). */
+  const sheetsForWeekExport = useMemo(() => {
+    if (!activeWeekStarting) return [];
+    return sheets.filter((s) => s.week_starting && sheetWeeksOverlap(s.week_starting, activeWeekStarting));
+  }, [sheets, activeWeekStarting]);
+
   const { data: selectedSheet, isLoading: sheetLoading } = useQuery({
     queryKey: ["sheet", selectedSheetId],
     queryFn: () => api.sheets.get(selectedSheetId),
@@ -468,6 +482,45 @@ export function ManagerView() {
                   <MessageSquare className="w-4 h-4" /> Messages
                 </Button>
               </Link>
+            </div>
+          </div>
+
+          <div
+            className="hidden md:block w-px shrink-0 self-stretch min-h-[2.75rem] bg-slate-400/90 dark:bg-slate-600"
+            aria-hidden="true"
+          />
+
+          <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700 md:border-t-0 md:pt-0 md:pl-6">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 px-0.5">
+              Export
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 text-slate-600 dark:text-slate-300 w-full sm:w-auto"
+                disabled={!activeWeekStarting || sheetsForWeekExport.length === 0 || sheetsLoading}
+                title={
+                  !activeWeekStarting ?
+                    "Select a work week on the calendar first"
+                  : sheetsForWeekExport.length === 0 ?
+                    "No sheets for this work week"
+                  : "Download CSV of work, break, and non-work minutes by day"
+                }
+                onClick={() => {
+                  if (!activeWeekStarting || sheetsForWeekExport.length === 0) return;
+                  const csv = buildManagerHoursCsv(sheets, activeWeekStarting, getTodayLocalDateString());
+                  const safe = activeWeekStarting.replace(/[^\d-]/g, "") || "week";
+                  downloadManagerHoursCsv(`fatigue-hours-${safe}.csv`, csv);
+                }}
+              >
+                <Download className="w-4 h-4 shrink-0" />
+                Hours (CSV)
+              </Button>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-md leading-snug">
+                Raw minutes per day for the selected work week (all drivers). For spreadsheets or payroll tools — not
+                legal, tax, or award advice. Fatigue compliance is separate from ATO record-keeping rules.
+              </p>
             </div>
           </div>
         </nav>
