@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionForSheetAccess, canAccessSheet, getManagerSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { autoCloseStaleDraftSheetsForUser } from "@/lib/sheet-auto-close-db";
 import { getPreviousWeekSunday, isNextWeekOrLater } from "@/lib/weeks";
 import { parseJurisdictionCode } from "@/lib/jurisdiction";
 
@@ -55,10 +56,15 @@ export async function GET(
   if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await params;
-    const sheet = await prisma.fatigueSheet.findUnique({ where: { id } });
+    let sheet = await prisma.fatigueSheet.findUnique({ where: { id } });
     if (!sheet) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (!canAccessSheet(sheet, access)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (sheet.createdById === access.userId) {
+      await autoCloseStaleDraftSheetsForUser(access.userId);
+      sheet = await prisma.fatigueSheet.findUnique({ where: { id } });
+      if (!sheet) return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     return NextResponse.json(sheetToJson(sheet));
   } catch {

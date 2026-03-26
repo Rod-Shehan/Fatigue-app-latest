@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionForSheetAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { autoCloseStaleDraftSheetsForUser } from "@/lib/sheet-auto-close-db";
 import { getThisWeekSunday, isNextWeekOrLater } from "@/lib/weeks";
 import { parseJurisdictionCode } from "@/lib/jurisdiction";
 
@@ -51,6 +52,9 @@ export async function GET() {
   const access = await getSessionForSheetAccess();
   if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!access.isManager) {
+      await autoCloseStaleDraftSheetsForUser(access.userId);
+    }
     const where = access.isManager
       ? {}
       : { createdById: access.userId };
@@ -70,6 +74,8 @@ export async function POST(req: Request) {
   const access = await getSessionForSheetAccess();
   if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    await autoCloseStaleDraftSheetsForUser(access.userId);
+
     // Limit: only one unfinished (draft) sheet per driver at a time.
     // Prevent multiple live sheets that can be edited concurrently.
     const existingDraft = await prisma.fatigueSheet.findFirst({
