@@ -314,11 +314,9 @@ export default function LogBar({
 
   /** Saturated bands + thick border for single-glance compliance (outdoor / cab visibility). */
   const headerShellClass =
-    complianceTone === "violation"
-      ? "bg-red-400 dark:bg-red-600 border-b-4 border-red-900 dark:border-red-100 shadow-lg"
-      : complianceTone === "warning"
-        ? "bg-amber-400 dark:bg-amber-500 border-b-4 border-amber-900 dark:border-amber-100 shadow-lg"
-        : complianceTone === "pending"
+    complianceTone === "violation" || complianceTone === "warning"
+      ? "bg-amber-400 dark:bg-amber-500 border-b-4 border-amber-900 dark:border-amber-100 shadow-lg"
+      : complianceTone === "pending"
           ? "bg-gradient-to-r from-amber-400 via-lime-400 to-emerald-500 dark:from-amber-600 dark:via-lime-600 dark:to-emerald-600 border-b-4 border-amber-900 dark:border-emerald-100 shadow-lg"
           : complianceTone === "ok"
             ? "bg-emerald-400 dark:bg-emerald-600 border-b-4 border-emerald-900 dark:border-emerald-100 shadow-lg"
@@ -326,11 +324,9 @@ export default function LogBar({
 
   /** Keep labels readable on solid compliance backgrounds. */
   const complianceBarTextClass =
-    complianceTone === "violation"
-      ? "text-red-950 dark:text-white [&_.text-slate-400]:!text-red-900/80 [&_.text-slate-400]:dark:!text-red-50 [&_.text-slate-500]:dark:!text-red-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
-      : complianceTone === "warning"
-        ? "text-amber-950 dark:text-white [&_.text-slate-400]:!text-amber-900/80 [&_.text-slate-400]:dark:!text-amber-50 [&_.text-slate-500]:dark:!text-amber-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
-        : complianceTone === "pending"
+    complianceTone === "violation" || complianceTone === "warning"
+      ? "text-amber-950 dark:text-white [&_.text-slate-400]:!text-amber-900/80 [&_.text-slate-400]:dark:!text-amber-50 [&_.text-slate-500]:dark:!text-amber-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
+      : complianceTone === "pending"
           ? "text-emerald-950 dark:text-white [&_.text-slate-400]:!text-amber-900/80 [&_.text-slate-400]:dark:!text-amber-50 [&_.text-slate-500]:dark:!text-lime-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
           : complianceTone === "ok"
             ? "text-emerald-950 dark:text-white [&_.text-slate-400]:!text-emerald-900/75 [&_.text-slate-400]:dark:!text-emerald-50 [&_.text-slate-500]:dark:!text-emerald-50 [&_.text-slate-600]:dark:!text-white [&_.text-slate-700]:dark:!text-white [&_.text-slate-800]:dark:!text-white [&_.text-slate-300]:dark:!text-white [&_.text-slate-100]:dark:!text-white [&_.text-slate-200]:dark:!text-white"
@@ -586,7 +582,7 @@ export default function LogBar({
             const isDisabled = currentType === type;
             const theme = ACTIVITY_THEME[type];
             const buttonColors = isPending
-              ? "bg-red-500 hover:bg-red-600 disabled:bg-red-300"
+              ? "bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300"
               : theme.button;
             return (
               <button
@@ -725,10 +721,8 @@ export default function LogBar({
                   "bg-black/20 dark:bg-white/25 hover:bg-black/30 dark:hover:bg-white/35 focus-visible:ring-emerald-900 dark:focus-visible:ring-white focus-visible:ring-offset-emerald-400 dark:focus-visible:ring-offset-emerald-600",
                 complianceTone === "pending" &&
                   "bg-black/20 dark:bg-white/25 hover:bg-black/30 dark:hover:bg-white/35 focus-visible:ring-amber-900 dark:focus-visible:ring-amber-100 focus-visible:ring-offset-amber-400 dark:focus-visible:ring-offset-lime-600",
-                complianceTone === "warning" &&
+                (complianceTone === "warning" || complianceTone === "violation") &&
                   "bg-black/15 dark:bg-black/20 hover:bg-black/25 dark:hover:bg-black/30 focus-visible:ring-amber-900 dark:focus-visible:ring-amber-100 focus-visible:ring-offset-amber-400 dark:focus-visible:ring-offset-amber-500",
-                complianceTone === "violation" &&
-                  "bg-black/15 dark:bg-black/20 hover:bg-black/25 dark:hover:bg-black/30 focus-visible:ring-red-900 dark:focus-visible:ring-red-100 focus-visible:ring-offset-red-400 dark:focus-visible:ring-offset-red-600",
                 complianceTone === "default" && "rounded-lg hover:bg-black/10 dark:hover:bg-white/15 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
               )}
               title={
@@ -763,7 +757,7 @@ export default function LogBar({
                   aria-hidden
                 />
               ) : complianceButton.hasViolations ? (
-                <X className="w-9 h-9 shrink-0 text-red-950 dark:text-white drop-shadow-sm" strokeWidth={3} aria-hidden />
+                <X className="w-9 h-9 shrink-0 text-amber-950 dark:text-white drop-shadow-sm" strokeWidth={3} aria-hidden />
               ) : complianceButton.hasWarnings ? (
                 <AlertTriangle className="w-9 h-9 shrink-0 text-amber-950 dark:text-white drop-shadow-sm" strokeWidth={2.5} aria-hidden />
               ) : complianceTone === "pending" ? (
