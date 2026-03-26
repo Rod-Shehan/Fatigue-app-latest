@@ -5,6 +5,7 @@ import { Briefcase, Coffee, Moon, Square, Check, X, Loader2, AlertTriangle, Cloc
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { VoiceAlertsToggle } from "@/components/VoiceAlertsToggle";
+import { VoiceCommandControl } from "@/components/VoiceCommandControl";
 import { getVoiceAlertsEnabled, speakVoiceAlert } from "@/lib/voice-alerts";
 import { getEventsInTimeOrder, getInsufficientNonWorkMessage } from "@/lib/rolling-events";
 import { cn } from "@/lib/utils";
@@ -703,6 +704,7 @@ export default function LogBar({
         <div className="flex shrink-0 items-center gap-1">
           <span className="w-11 h-11 shrink-0" />
           <span className="w-11 h-11 shrink-0" />
+          <span className="w-11 h-11 shrink-0" />
         </div>
       </div>
       <div
@@ -776,6 +778,18 @@ export default function LogBar({
             </button>
           )}
           <div className="shrink-0 self-center flex items-center gap-1">
+            <VoiceCommandControl
+              voiceLabels={{
+                work:
+                  getNextWorkBreakType(currentType) === "work" &&
+                  (currentType === null || currentType === "stop")
+                    ? "Start shift"
+                    : "Log work",
+                break: "Log break",
+                stop: EVENT_LABELS.stop,
+              }}
+              onConfirmIntent={(intent) => handleLog(intent)}
+            />
             <VoiceAlertsToggle enabled={voiceAlertsEnabled} onChange={setVoiceAlertsEnabled} />
             <ThemeToggle />
           </div>
