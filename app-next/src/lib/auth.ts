@@ -6,10 +6,10 @@ import bcrypt from "bcryptjs";
 
 /**
  * Production sign-in:
- * - User with passwordHash: bcrypt must match (unless NEXTAUTH_SHARED_PASSWORD_PRIORITY is set — see below).
+ * - Default: fleet shared password (NEXTAUTH_CREDENTIALS_PASSWORD) is checked before bcrypt when it matches
+ *   (NEXTAUTH_SHARED_PASSWORD_PRIORITY defaults to on). Set NEXTAUTH_SHARED_PASSWORD_PRIORITY=false to require
+ *   per-user password when passwordHash exists.
  * - User without passwordHash: NEXTAUTH_CREDENTIALS_PASSWORD must be set; password field must match (trimmed).
- * - NEXTAUTH_SHARED_PASSWORD_PRIORITY=true: if NEXTAUTH_CREDENTIALS_PASSWORD matches, sign-in succeeds even when
- *   a per-user hash exists (fleet password overrides forgotten individual passwords).
  * Dev-only: blank credentials / email + empty password (see authorize below).
  */
 export const authOptions: NextAuthOptions = {
@@ -30,9 +30,10 @@ export const authOptions: NextAuthOptions = {
         const sharedPassRaw = process.env.NEXTAUTH_CREDENTIALS_PASSWORD;
         const sharedPass =
           typeof sharedPassRaw === "string" && sharedPassRaw.trim().length > 0 ? sharedPassRaw.trim() : "";
+        // Default true (fleet password first). Opt out with NEXTAUTH_SHARED_PASSWORD_PRIORITY=false or 0.
         const sharedPasswordPriority =
-          process.env.NEXTAUTH_SHARED_PASSWORD_PRIORITY === "1" ||
-          process.env.NEXTAUTH_SHARED_PASSWORD_PRIORITY === "true";
+          process.env.NEXTAUTH_SHARED_PASSWORD_PRIORITY !== "false" &&
+          process.env.NEXTAUTH_SHARED_PASSWORD_PRIORITY !== "0";
 
         // Dev only: allow blank credentials to sign in as a dev user (login page stays, fields can be empty)
         if (process.env.NODE_ENV === "development" && email === "" && password === "") {
