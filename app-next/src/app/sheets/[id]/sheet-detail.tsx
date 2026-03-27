@@ -65,7 +65,7 @@ import { getProspectiveWorkWarnings, getSlotOffsetWithinTodayLocal } from "@/lib
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
-import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
+import { MINUTES_PER_DAY, normalizeDayCoverageArrays } from "@/lib/coverage/derive-minute-coverage";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 const EMPTY_DAY = (): DayData => ({
@@ -315,7 +315,7 @@ export function SheetDetail({
         week_starting: weekStart,
         days: applyLast24hBreakNonWorkRule(
           deriveDaysWithRollover(
-            (sheet.days || []).map((d) => ({ ...EMPTY_DAY(), ...d })),
+            (sheet.days || []).map((d) => normalizeDayCoverageArrays({ ...EMPTY_DAY(), ...d })),
             weekStart,
             { todayStr: getRegulatoryTodayYmd(sheet.jurisdiction_code || DEFAULT_JURISDICTION_CODE) }
           ),

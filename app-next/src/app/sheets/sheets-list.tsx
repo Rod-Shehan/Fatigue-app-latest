@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { type FatigueSheet } from "@/lib/api";
+import { getHours } from "@/lib/compliance";
 import { listSheetsOfflineFirst } from "@/lib/offline-api";
 import { parseLocalDate } from "@/lib/weeks";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,7 @@ const LAST_SHEET_KEY = "fatigue-last-sheet-id";
 
 function getTotalWorkHours(sheet: FatigueSheet) {
   if (!sheet.days) return 0;
-  return sheet.days.reduce((total, day) => {
-    const slots = (day.work_time || []).filter(Boolean).length;
-    return total + slots * 0.5;
-  }, 0);
+  return sheet.days.reduce((total, day) => total + getHours(day.work_time), 0);
 }
 
 export function SheetsList() {

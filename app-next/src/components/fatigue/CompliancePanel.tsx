@@ -4,13 +4,9 @@ import React from "react";
 import { AlertTriangle, CheckCircle2, Clock, Coffee, Loader2, MapPin, Moon, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ComplianceCheckResult } from "@/lib/api";
+import { getHours } from "@/lib/compliance";
 import { getSheetDayDateString } from "@/lib/weeks";
 import { ACTIVITY_THEME } from "@/lib/theme";
-
-/** Client-only: slot count to hours (48 slots = 24h). */
-function slotHours(arr: boolean[] | undefined): number {
-  return (arr?.filter(Boolean).length ?? 0) / 2;
-}
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -73,10 +69,10 @@ export default function CompliancePanel({
   const checks = complianceResults ?? [];
   const violations = checks.filter((c) => c.type === "violation");
   const warnings = checks.filter((c) => c.type === "warning");
-  const totalWork = days.reduce((s, d) => s + slotHours(d.work_time), 0);
-  const totalBreaks = days.reduce((s, d) => s + slotHours(d.breaks), 0);
-  const totalNonWork = days.reduce((s, d) => s + slotHours(d.non_work), 0);
-  const prevWeekWork = (prevWeekDays || []).reduce((s, d) => s + slotHours(d.work_time), 0);
+  const totalWork = days.reduce((s, d) => s + getHours(d.work_time), 0);
+  const totalBreaks = days.reduce((s, d) => s + getHours(d.breaks), 0);
+  const totalNonWork = days.reduce((s, d) => s + getHours(d.non_work), 0);
+  const prevWeekWork = (prevWeekDays || []).reduce((s, d) => s + getHours(d.work_time), 0);
   const isTwoUp = driverType === "two_up";
 
   return (

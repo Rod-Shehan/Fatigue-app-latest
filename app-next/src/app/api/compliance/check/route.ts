@@ -11,6 +11,7 @@ export type ComplianceCheckPayload = {
   weekStarting?: string;
   prevWeekStarting?: string;
   currentDayIndex?: number;
+  /** Minutes since local midnight for “now” on the active day (0–1440). */
   slotOffsetWithinToday?: number;
   /** Sheet-level rule set (snake_case or camelCase). */
   jurisdiction_code?: string;
