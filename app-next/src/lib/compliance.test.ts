@@ -6,17 +6,22 @@ import {
   runComplianceChecks,
   type ComplianceDayData,
 } from "./compliance";
+import { MINUTES_PER_DAY } from "./coverage/derive-minute-coverage";
 
-/** Helper: 48 slots = 24h; true = 0.5h each. Fill first n half-hours as work. */
+/** Minute grid: first `hours * 60` minutes marked work. */
 function workSlots(hours: number): boolean[] {
-  const s = Array(48).fill(false);
-  for (let i = 0; i < Math.min(48, hours * 2); i++) s[i] = true;
+  const s = Array(MINUTES_PER_DAY).fill(false);
+  const mins = Math.min(MINUTES_PER_DAY, Math.max(0, hours) * 60);
+  for (let i = 0; i < mins; i++) s[i] = true;
   return s;
 }
 
+/** Non-work run starting at `startSlot` half-hour index (legacy), length `hours`. */
 function nonWorkSlots(hours: number, startSlot = 0): boolean[] {
-  const s = Array(48).fill(false);
-  for (let i = startSlot; i < Math.min(48, startSlot + hours * 2); i++) s[i] = true;
+  const s = Array(MINUTES_PER_DAY).fill(false);
+  const startMin = startSlot * 30;
+  const end = Math.min(MINUTES_PER_DAY, startMin + hours * 60);
+  for (let i = startMin; i < end; i++) s[i] = true;
   return s;
 }
 
@@ -24,36 +29,41 @@ function nonWorkSlots(hours: number, startSlot = 0): boolean[] {
 function dayWorkOnly(hours: number): ComplianceDayData {
   return {
     work_time: workSlots(hours),
-    breaks: Array(48).fill(false),
-    non_work: Array(48).fill(false),
+    breaks: Array(MINUTES_PER_DAY).fill(false),
+    non_work: Array(MINUTES_PER_DAY).fill(false),
   };
 }
 
 /** Seven empty days */
 function emptyWeek(): ComplianceDayData[] {
-  return Array(7).fill(null).map(() => ({
-    work_time: Array(48).fill(false),
-    breaks: Array(48).fill(false),
-    non_work: Array(48).fill(false),
-  }));
+  return Array(7)
+    .fill(null)
+    .map(() => ({
+      work_time: Array(MINUTES_PER_DAY).fill(false),
+      breaks: Array(MINUTES_PER_DAY).fill(false),
+      non_work: Array(MINUTES_PER_DAY).fill(false),
+    }));
 }
 
 describe("compliance helpers", () => {
-  it("getHours counts half-hour slots", () => {
+  it("getHours counts minute coverage (or legacy half-hour slots)", () => {
     expect(getHours(workSlots(5))).toBe(5);
     expect(getHours(undefined)).toBe(0);
     expect(getHours([])).toBe(0);
   });
 
   it("findLongestContinuousBlock finds longest run", () => {
-    const slots = Array(48).fill(false);
-    for (let i = 10; i < 24; i++) slots[i] = true; // 7h
+    const slots = Array(MINUTES_PER_DAY).fill(false);
+    for (let i = 300; i < 720; i++) slots[i] = true; // 7h from 05:00
     expect(findLongestContinuousBlock(slots)).toBe(7);
   });
 
   it("countContinuousBlocksOfAtLeast counts 7h blocks", () => {
-    // 8h block + 8h block = 2 blocks
-    const slots = [...Array(16).fill(true), ...Array(16).fill(false), ...Array(16).fill(true)];
+    const slots = [
+      ...Array(480).fill(true),
+      ...Array(480).fill(false),
+      ...Array(480).fill(true),
+    ] as boolean[];
     expect(countContinuousBlocksOfAtLeast(slots, 7)).toBe(2);
   });
 });
@@ -89,8 +99,16 @@ describe("compliance scenarios — what the logic produces", () => {
     for (let i = 0; i < 7; i++) thisWeek[i] = dayWorkOnly(14); // 98h this week
     const prevWeek = emptyWeek();
     for (let i = 0; i < 7; i++) prevWeek[i] = dayWorkOnly(14); // 98h prev; 196h total but split by 48h
-    prevWeek[6] = { work_time: Array(48).fill(false), breaks: Array(48).fill(false), non_work: Array(48).fill(true) };
-    thisWeek[0] = { work_time: Array(48).fill(false), breaks: Array(48).fill(false), non_work: Array(48).fill(true) };
+    prevWeek[6] = {
+      work_time: Array(MINUTES_PER_DAY).fill(false),
+      breaks: Array(MINUTES_PER_DAY).fill(false),
+      non_work: Array(MINUTES_PER_DAY).fill(true),
+    };
+    thisWeek[0] = {
+      work_time: Array(MINUTES_PER_DAY).fill(false),
+      breaks: Array(MINUTES_PER_DAY).fill(false),
+      non_work: Array(MINUTES_PER_DAY).fill(true),
+    };
     const results = runComplianceChecks(thisWeek, { driverType: "solo", prevWeekDays: prevWeek });
     const violation = results.find((r) => r.day === "14-day" && r.type === "violation");
     expect(violation).toBeUndefined();
@@ -100,8 +118,8 @@ describe("compliance scenarios — what the logic produces", () => {
     const days = emptyWeek();
     days[1] = {
       work_time: workSlots(12),
-      breaks: Array(48).fill(false),
-      non_work: Array(48).fill(false), // 0 non-work
+      breaks: Array(MINUTES_PER_DAY).fill(false),
+      non_work: Array(MINUTES_PER_DAY).fill(false), // 0 non-work
     };
     const results = runComplianceChecks(days, { driverType: "solo" });
     const v = results.find((r) => r.message.includes("7 continuous hrs non-work") && r.type === "violation");
@@ -113,7 +131,7 @@ describe("compliance scenarios — what the logic produces", () => {
     const days = emptyWeek();
     days[2] = {
       work_time: workSlots(16),
-      breaks: Array(48).fill(false),
+      breaks: Array(MINUTES_PER_DAY).fill(false),
       non_work: nonWorkSlots(5), // only 5h non-work
     };
     const results = runComplianceChecks(days, { driverType: "two_up" });
@@ -131,7 +149,7 @@ describe("compliance scenarios — what the logic produces", () => {
 
   it("scenario: print sample results (manual inspection)", () => {
     const days = emptyWeek();
-    days[0] = dayWorkOnly(6);  // Sun: 6h work, no break
+    days[0] = dayWorkOnly(6); // Sun: 6h work, no break
     days[1] = { ...dayWorkOnly(10), breaks: workSlots(0.5) }; // Mon: 10h work, 30min break (invalid length)
     const results = runComplianceChecks(days, { driverType: "solo" });
     console.log("\n--- Sample compliance output ---");

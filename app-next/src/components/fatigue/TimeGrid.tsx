@@ -1,5 +1,7 @@
 "use client";
 
+import { halfHourSlotsToRanges, minuteBooleansToRanges } from "@/lib/coverage/grid-to-ranges";
+import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
 import { TIME_GRID_ROWS } from "@/lib/theme";
 import { getTodayLocalDateString } from "@/lib/weeks";
 
@@ -32,27 +34,6 @@ function getEffectiveDayEndMinutes(dateStr: string): number {
   if (dateStr < today) return 24 * 60;
   const dayStart = new Date(dateStr + "T00:00:00").getTime();
   return Math.min(24 * 60, Math.ceil((Date.now() - dayStart) / 60000));
-}
-
-/** Convert 48 half-hour slots to segment ranges (minutes), capping end at capAtMin. */
-function slotsToRanges(slots: boolean[] | undefined, capAtMin: number): { startMin: number; endMin: number }[] {
-  if (!slots || slots.length < 48) return [];
-  const ranges: { startMin: number; endMin: number }[] = [];
-  let start: number | null = null;
-  for (let i = 0; i < 48; i++) {
-    const slotStart = i * 30;
-    const slotEnd = (i + 1) * 30;
-    const on = !!slots[i];
-    if (on && start === null) start = slotStart;
-    if (!on && start !== null) {
-      ranges.push({ startMin: start, endMin: Math.min(slotStart, capAtMin) });
-      start = null;
-    }
-    if (on && i === 47) {
-      ranges.push({ startMin: start!, endMin: Math.min(slotEnd, capAtMin) });
-    }
-  }
-  return ranges;
 }
 
 function buildSegments(events: { time: string; type: string }[] | undefined, dateStr: string) {
@@ -133,18 +114,27 @@ export default function TimeGrid({ dayData }: { dayData: DayDataGrid }) {
 
   const slotBased =
     dayData.work_time != null && dayData.breaks != null && dayData.non_work != null;
-  // Prefer 1-minute boundaries from events so the grid accurately reflects the shift. Fall back to 30-min slots only when no events.
-  const segments =
-    events.length > 0
+  const isMinuteCoverage = slotBased && (dayData.work_time?.length ?? 0) >= MINUTES_PER_DAY;
+  // Prefer derived minute coverage (single pipeline with compliance); else event-based segments; else legacy 48 slots.
+  const segments = isMinuteCoverage
+    ? {
+        work_time: minuteBooleansToRanges(
+          dayData.work_time!.map((w, i) => w && !dayData.breaks![i]),
+          24 * 60
+        ),
+        breaks: minuteBooleansToRanges(dayData.breaks, 24 * 60),
+        non_work: minuteBooleansToRanges(dayData.non_work, effectiveEndMin),
+      }
+    : events.length > 0
       ? buildSegments(events, dateStr)
       : slotBased
         ? {
-            work_time: slotsToRanges(
+            work_time: halfHourSlotsToRanges(
               dayData.work_time!.map((w, i) => w && !dayData.breaks![i]),
               24 * 60
             ),
-            breaks: slotsToRanges(dayData.breaks, 24 * 60),
-            non_work: slotsToRanges(dayData.non_work, effectiveEndMin),
+            breaks: halfHourSlotsToRanges(dayData.breaks, 24 * 60),
+            non_work: halfHourSlotsToRanges(dayData.non_work, effectiveEndMin),
           }
         : buildSegments(events, dateStr);
 

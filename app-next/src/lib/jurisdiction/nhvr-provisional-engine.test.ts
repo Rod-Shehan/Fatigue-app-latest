@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
 import { nhvrProvisionalEngine } from "./nhvr-provisional-engine";
 
 describe("nhvrProvisionalEngine", () => {
@@ -7,9 +8,9 @@ describe("nhvrProvisionalEngine", () => {
       Array(7)
         .fill(null)
         .map(() => ({
-          work_time: Array(48).fill(false),
-          breaks: Array(48).fill(false),
-          non_work: Array(48).fill(false),
+          work_time: Array(MINUTES_PER_DAY).fill(false),
+          breaks: Array(MINUTES_PER_DAY).fill(false),
+          non_work: Array(MINUTES_PER_DAY).fill(false),
         }));
     const results = nhvrProvisionalEngine.run(emptyWeek(), { driverType: "solo" });
     expect(results[0]?.type).toBe("warning");

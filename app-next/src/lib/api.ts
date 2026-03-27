@@ -151,6 +151,7 @@ export const api = {
       weekStarting?: string;
       prevWeekStarting?: string;
       currentDayIndex?: number;
+      /** Minutes since local midnight for “now” on the active day (0–1440). */
       slotOffsetWithinToday?: number;
       jurisdiction_code?: string;
     }) =>

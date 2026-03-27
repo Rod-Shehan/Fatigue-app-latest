@@ -8,6 +8,7 @@
 
 import { getSheetDayDateString, getPerthMidnightUtcMs, getTodayYmdInTimeZone } from "@/lib/weeks";
 import { haversineDistanceKm } from "@/lib/geo";
+import { MINUTES_PER_DAY, normalizeDayCoverageArrays } from "@/lib/coverage/derive-minute-coverage";
 
 export type ComplianceDayData = {
   work_time?: boolean[];
@@ -25,8 +26,12 @@ export type ComplianceCheckResult = {
   message: string;
 };
 
+/** Hours from coverage: 1440 booleans = 1 min each; legacy 48 = 30 min each. */
 export function getHours(slots: boolean[] | undefined): number {
-  return (slots || []).filter(Boolean).length * 0.5;
+  const arr = slots || [];
+  if (arr.length === 0) return 0;
+  if (arr.length === 48) return arr.filter(Boolean).length * 0.5;
+  return arr.filter(Boolean).length / 60;
 }
 
 /** Day is considered to have work if it has work_time slots or any work event (used for 7h/17h rule scope). */
@@ -37,6 +42,7 @@ function dayHasWork(day: ComplianceDayData): boolean {
 
 export function findLongestContinuousBlock(slots: boolean[] | undefined): number {
   const arr = slots || [];
+  const minuteMode = arr.length !== 48;
   let max = 0,
     current = 0;
   for (let i = 0; i < arr.length; i++) {
@@ -47,14 +53,15 @@ export function findLongestContinuousBlock(slots: boolean[] | undefined): number
       current = 0;
     }
   }
-  return max * 0.5;
+  return minuteMode ? max / 60 : max * 0.5;
 }
 
 export function countContinuousBlocksOfAtLeast(slots: boolean[] | undefined, minHours: number): number {
   const arr = slots || [];
+  const minuteMode = arr.length !== 48;
+  const minSlots = minuteMode ? minHours * 60 : minHours * 2;
   let count = 0,
     current = 0;
-  const minSlots = minHours * 2;
   for (let i = 0; i < arr.length; i++) {
     if (arr[i]) {
       current++;
@@ -67,21 +74,22 @@ export function countContinuousBlocksOfAtLeast(slots: boolean[] | undefined, min
   return count;
 }
 
-/** 48h = 96 half-hour slots. 14-day work limit resets after a continuous non-work break of this length. */
-const NON_WORK_SLOTS_48H = 48 * 2;
-/** 24h = 48 half-hour slots. A 24h continuous non-work period resets the 17h and 72h rules (Solo). */
-const NON_WORK_SLOTS_24H = 48;
+/** 48h continuous no-work in minutes (rolling). */
+const NON_WORK_MINUTES_48H = 48 * 60;
+/** 24h continuous no-work in minutes (rolling). */
+const NON_WORK_MINUTES_24H = 24 * 60;
 
 /**
  * Continuous "no work" slots spanning the boundary between two consecutive days (end of dayA + start of dayB).
  * No work = work_time is false (recorded non-work, break, or no entry all count the same; rule is rolling).
  */
 function continuousNoWorkAcrossBoundary(dayA: ComplianceDayData, dayB: ComplianceDayData): number {
-  const a = dayA.work_time || Array(48).fill(false);
-  const b = dayB.work_time || Array(48).fill(false);
+  const a = dayA.work_time || Array(MINUTES_PER_DAY).fill(false);
+  const b = dayB.work_time || Array(MINUTES_PER_DAY).fill(false);
+  const len = Math.min(a.length, MINUTES_PER_DAY);
   let slots = 0;
-  for (let s = 47; s >= 0 && !a[s]; s--) slots++;
-  for (let s = 0; s < 48 && !b[s]; s++) slots++;
+  for (let s = len - 1; s >= 0 && !a[s]; s--) slots++;
+  for (let s = 0; s < len && !b[s]; s++) slots++;
   return slots;
 }
 
@@ -96,7 +104,7 @@ function segmentsSplitBy48hNonWork(all14Days: ComplianceDayData[]): number[][] {
   let start = 0;
   for (let i = 0; i < all14Days.length - 1; i++) {
     const across = continuousNoWorkAcrossBoundary(all14Days[i], all14Days[i + 1]);
-    if (across >= NON_WORK_SLOTS_48H) {
+    if (across >= NON_WORK_MINUTES_48H) {
       segments.push(Array.from({ length: i - start + 1 }, (_, j) => start + j));
       start = i + 1;
     }
@@ -139,7 +147,7 @@ function segmentsSplitBy24hNonWork(
       weekStarting &&
       (getExtendedDayDate(i, weekStarting, prevWeekStarting, prevCount) === last24hBreak ||
         getExtendedDayDate(i + 1, weekStarting, prevWeekStarting, prevCount) === last24hBreak);
-    if (across >= NON_WORK_SLOTS_24H || isDeclaredBreak) {
+    if (across >= NON_WORK_MINUTES_24H || isDeclaredBreak) {
       segments.push(Array.from({ length: i - start + 1 }, (_, j) => start + j));
       start = i + 1;
     }
@@ -149,18 +157,17 @@ function segmentsSplitBy24hNonWork(
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const SLOTS_PER_DAY = 48;
-const SLOTS_24H = 48;
-const SLOTS_48H = 96;
-const SLOTS_72H = 72 * 2;
+const MINUTES_24H = 24 * 60;
+const MINUTES_48H = 48 * 60;
+const MINUTES_72H = 72 * 60;
 const MIN_NON_WORK_HRS_24H = 7;
-const MIN_NON_WORK_SLOTS_24H = MIN_NON_WORK_HRS_24H * 2;
+const MIN_NON_WORK_MINUTES_24H = MIN_NON_WORK_HRS_24H * 60;
 const MIN_RECORDED_HRS_24H = 16;
-const MIN_7H_BLOCK_SLOTS = 7 * 2;
+const MIN_7H_BLOCK_MINUTES = 7 * 60;
 
-/** Flat slot arrays across days for rolling window checks. */
+/** Flat minute arrays across days for rolling window checks. */
 function flatSlots(days: ComplianceDayData[], key: "non_work" | "work_time" | "breaks"): boolean[] {
-  return days.flatMap((d) => (d[key] || Array(SLOTS_PER_DAY).fill(false)).slice(0, SLOTS_PER_DAY));
+  return days.flatMap((d) => (d[key] || Array(MINUTES_PER_DAY).fill(false)).slice(0, MINUTES_PER_DAY));
 }
 
 function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceCheckResult[]) {
@@ -241,8 +248,8 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
   });
 }
 
-const SLOTS_17H = 17 * 2;
-const SLOTS_7H_NON_WORK = 7 * 2;
+const MINUTES_17H_WORK_BREAK = 17 * 60;
+const MINUTES_7H_NON_WORK = 7 * 60;
 
 function checkSoloRules(
   days: ComplianceDayData[],
@@ -254,7 +261,7 @@ function checkSoloRules(
     last24hBreak?: string;
     /** Current day index in the current week (0–6). When set with slotOffsetWithinToday, 72h rule is retrospective from now. */
     currentDayIndex?: number;
-    /** Slots (0–48) of today already elapsed so the 72h window ends at "now". */
+    /** Minutes elapsed since regulatory midnight today (0–1440); 72h window ends at "now". */
     slotOffsetWithinToday?: number;
   }
 ) {
@@ -311,7 +318,7 @@ function checkSoloRules(
     let workBreakRun = 0;
     let nonWorkRun = 0;
     for (let s = 0; s < nonWork.length; s++) {
-      const dayIndexInSegment = Math.min(Math.floor(s / SLOTS_PER_DAY), segmentDays.length - 1);
+      const dayIndexInSegment = Math.min(Math.floor(s / MINUTES_PER_DAY), segmentDays.length - 1);
       const segmentDayHasWork = dayHasWork(segmentDays[dayIndexInSegment] ?? {});
       if (!segmentDayHasWork) {
         workBreakRun = 0;
@@ -323,10 +330,10 @@ function checkSoloRules(
         nonWorkRun++;
         workBreakRun = 0;
       } else if (isWorkBreak) {
-        if (nonWorkRun >= SLOTS_7H_NON_WORK) workBreakRun = 0;
+        if (nonWorkRun >= MINUTES_7H_NON_WORK) workBreakRun = 0;
         nonWorkRun = 0;
         workBreakRun++;
-        if (workBreakRun > SLOTS_17H) {
+        if (workBreakRun > MINUTES_17H_WORK_BREAK) {
           const dayIdx = segment[dayIndexInSegment];
           const violationDayDate = getExtendedDayDate(dayIdx, soloOptions?.weekStarting ?? "", soloOptions?.prevWeekStarting ?? "", prevCount);
           if (soloOptions?.last24hBreak && violationDayDate === soloOptions.last24hBreak) {
@@ -370,15 +377,18 @@ function checkSoloRules(
     const nonWork = flatSlots(segmentDays, "non_work");
     const work = flatSlots(segmentDays, "work_time");
     const breaks = flatSlots(segmentDays, "breaks");
-    const getLabelSlot = (slotIndex: number) => getLabel(segment[Math.min(Math.floor(slotIndex / SLOTS_PER_DAY), segment.length - 1)]);
+    const getLabelSlot = (minuteIndex: number) =>
+      getLabel(segment[Math.min(Math.floor(minuteIndex / MINUTES_PER_DAY), segment.length - 1)]);
 
     const daysBeforeToday = segment.filter((i) => i < todayExtended!).length;
-    const effectiveEndSlot = daysBeforeToday * SLOTS_PER_DAY + Math.min(48, Math.max(0, slotOffsetWithinToday ?? 48));
+    const effectiveEndMinute =
+      daysBeforeToday * MINUTES_PER_DAY +
+      Math.min(MINUTES_PER_DAY, Math.max(0, slotOffsetWithinToday ?? MINUTES_PER_DAY));
 
-    if (effectiveEndSlot < SLOTS_72H) continue;
-    const start = effectiveEndSlot - SLOTS_72H;
-    const window = nonWork.slice(start, effectiveEndSlot);
-    const totalNonWork = window.filter(Boolean).length * 0.5;
+    if (effectiveEndMinute < MINUTES_72H) continue;
+    const start = effectiveEndMinute - MINUTES_72H;
+    const window = nonWork.slice(start, effectiveEndMinute);
+    const totalNonWork = window.filter(Boolean).length / 60;
     const sevenHrBlocks = countContinuousBlocksOfAtLeast(window, 7);
     const hasData = window.some((_, i) => work[start + i] || breaks[start + i]);
     if (!hasData) continue;
@@ -388,14 +398,14 @@ function checkSoloRules(
       results.push({
         type: "warning",
         iconKey: "TrendingUp",
-        day: getLabelSlot(effectiveEndSlot - 1),
+        day: getLabelSlot(effectiveEndMinute - 1),
         message: `Need ≥27 hrs non-work in any rolling 72hr period (24h non-work resets; this window: ${totalNonWork}h)${windowEndSuffix}`,
       });
     } else if (sevenHrBlocks < 3) {
       results.push({
         type: "warning",
         iconKey: "Moon",
-        day: getLabelSlot(effectiveEndSlot - 1),
+        day: getLabelSlot(effectiveEndMinute - 1),
         message: `Need ≥3 blocks of ≥7 continuous hrs non-work in any rolling 72hrs (24h non-work resets; found: ${sevenHrBlocks})${windowEndSuffix}`,
       });
     }
@@ -406,19 +416,19 @@ function checkTwoUpRules(days: ComplianceDayData[], results: ComplianceCheckResu
   const nonWork = flatSlots(days, "non_work");
   const work = flatSlots(days, "work_time");
   const breaks = flatSlots(days, "breaks");
-  const getLabel = (slotIndex: number) => {
-    const dayIdx = Math.floor(slotIndex / SLOTS_PER_DAY);
+  const getLabel = (minuteIndex: number) => {
+    const dayIdx = Math.floor(minuteIndex / MINUTES_PER_DAY);
     const ci = dayIdx - prevCount;
     return ci < 0 ? `prev+${dayIdx + 1}` : DAY_LABELS[ci] ?? `D${dayIdx + 1}`;
   };
 
-  if (nonWork.length >= SLOTS_24H) {
-    for (let start = 0; start <= nonWork.length - SLOTS_24H; start++) {
-      const end = start + SLOTS_24H;
+  if (nonWork.length >= MINUTES_24H) {
+    for (let start = 0; start <= nonWork.length - MINUTES_24H; start++) {
+      const end = start + MINUTES_24H;
       const windowNonWork = nonWork.slice(start, end).filter(Boolean).length;
       const windowWorkBreak = work.slice(start, end).filter(Boolean).length + breaks.slice(start, end).filter(Boolean).length;
-      const nonWorkHrs = windowNonWork * 0.5;
-      const recordedHrs = windowWorkBreak * 0.5;
+      const nonWorkHrs = windowNonWork / 60;
+      const recordedHrs = windowWorkBreak / 60;
       if (recordedHrs >= MIN_RECORDED_HRS_24H && nonWorkHrs < MIN_NON_WORK_HRS_24H) {
         results.push({
           type: "violation",
@@ -431,9 +441,9 @@ function checkTwoUpRules(days: ComplianceDayData[], results: ComplianceCheckResu
     }
   }
 
-  if (nonWork.length >= SLOTS_48H) {
-    for (let start = 0; start <= nonWork.length - SLOTS_48H; start++) {
-      const window = nonWork.slice(start, start + SLOTS_48H);
+  if (nonWork.length >= MINUTES_48H) {
+    for (let start = 0; start <= nonWork.length - MINUTES_48H; start++) {
+      const window = nonWork.slice(start, start + MINUTES_48H);
       const sevenHrBlocks = countContinuousBlocksOfAtLeast(window, 7);
       if (sevenHrBlocks < 1) {
         const hasData = window.some((_, i) => work[start + i] || breaks[start + i]);
@@ -441,7 +451,7 @@ function checkTwoUpRules(days: ComplianceDayData[], results: ComplianceCheckResu
           results.push({
             type: "warning",
             iconKey: "Moon",
-            day: getLabel(start + SLOTS_48H - 1),
+            day: getLabel(start + MINUTES_48H - 1),
             message: "Need ≥1 block of ≥7 continuous hrs non-work in any rolling 48 hrs (Two-Up rule)",
           });
           break;
@@ -452,7 +462,7 @@ function checkTwoUpRules(days: ComplianceDayData[], results: ComplianceCheckResu
 
   const currentDays = days.slice(prevCount);
   const totalWeekNonWork = currentDays.reduce((sum, d) => sum + getHours(d.non_work), 0);
-  const allSlots = currentDays.flatMap((d) => d.non_work || Array(48).fill(false));
+  const allSlots = currentDays.flatMap((d) => d.non_work || Array(MINUTES_PER_DAY).fill(false));
   const longestBlock = findLongestContinuousBlock(allSlots);
   if (totalWeekNonWork > 0 && totalWeekNonWork < 48) {
     results.push({
@@ -616,7 +626,7 @@ export function runComplianceChecks(
     prevWeekStarting?: string;
     /** Current day index in week (0–6). With slotOffsetWithinToday, 72h rule is retrospective from now. */
     currentDayIndex?: number;
-    /** Slots (0–48) of today elapsed so 72h window ends at now. */
+    /** Minutes 0–1440 elapsed since regulatory midnight; 72h window ends at now. */
     slotOffsetWithinToday?: number;
   }
 ): ComplianceCheckResult[] {
@@ -631,16 +641,13 @@ export function runComplianceChecks(
     slotOffsetWithinToday,
   } = options;
 
-  checkBreakFromDriving(days, results);
+  const normalizedDays = days.map((d) => normalizeDayCoverageArrays(d));
 
-  const prevDays: ComplianceDayData[] = (prevWeekDays || []).map((d) => ({
-    ...d,
-    work_time: d.work_time || Array(48).fill(false),
-    breaks: d.breaks || Array(48).fill(false),
-    non_work: d.non_work || Array(48).fill(false),
-  }));
+  checkBreakFromDriving(normalizedDays, results);
+
+  const prevDays: ComplianceDayData[] = (prevWeekDays || []).map((d) => normalizeDayCoverageArrays(d));
   /* Include last 3 days of previous sheet so 72h rule can use previous sheet when trailing window intersects */
-  const extendedDays = [...prevDays.slice(-3), ...days];
+  const extendedDays = [...prevDays.slice(-3), ...normalizedDays];
   const prevCount = Math.min(3, prevDays.length);
 
   if (driverType === "two_up") {
@@ -659,12 +666,12 @@ export function runComplianceChecks(
   checkOdometerVsGpsPlausibility(extendedDays, results, { weekStarting, prevWeekStarting, prevCount });
   checkLocationEvidenceWarning(extendedDays, results);
 
-  const thisWeekWork = days.reduce((s, d) => s + getHours(d.work_time), 0);
+  const thisWeekWork = normalizedDays.reduce((s, d) => s + getHours(d.work_time), 0);
   const prevWeekWork = prevDays.reduce((s, d) => s + getHours(d.work_time), 0);
   const has14dayData = prevDays.length > 0;
 
   if (has14dayData) {
-    const all14Days = [...prevDays, ...days];
+    const all14Days = [...prevDays, ...normalizedDays];
     const segments = segmentsSplitBy48hNonWork(all14Days);
     for (const segment of segments) {
       const segmentWork = segment.reduce((s, i) => s + getHours(all14Days[i].work_time), 0);
@@ -706,7 +713,7 @@ export function runComplianceChecks(
 }
 
 /**
- * Half-hour slots elapsed since regulatory midnight today (0–48). Matches sheet-detail / API compliance payload.
+ * Minutes elapsed since regulatory midnight today (0–1440). Matches sheet-detail / API compliance payload.
  * WA: Australia/Perth calendar day; otherwise device local. Used for 72h retrospective "window ending now".
  */
 export function getSlotOffsetWithinTodayLocal(
@@ -716,11 +723,11 @@ export function getSlotOffsetWithinTodayLocal(
   if (jurisdictionCode == null || jurisdictionCode === "WA_OSH_3132") {
     const ymd = getTodayYmdInTimeZone("Australia/Perth", new Date(nowMs));
     const start = getPerthMidnightUtcMs(ymd);
-    return Math.min(48, Math.max(0, Math.floor((nowMs - start) / (30 * 60 * 1000))));
+    return Math.min(MINUTES_PER_DAY, Math.max(0, Math.floor((nowMs - start) / 60000)));
   }
   const today = new Date(nowMs);
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  return Math.min(48, Math.max(0, Math.floor((nowMs - todayStart) / (30 * 60 * 1000))));
+  return Math.min(MINUTES_PER_DAY, Math.max(0, Math.floor((nowMs - todayStart) / 60000)));
 }
 
 /** Clone days and set one work_time slot to true (for prospective "log work now" check). */
@@ -731,7 +738,7 @@ function cloneDaysAndInjectWork(
 ): ComplianceDayData[] {
   return days.map((d, i) => {
     if (i !== dayIndex) return { ...d };
-    const work = d.work_time ?? Array(48).fill(false);
+    const work = d.work_time ?? Array(MINUTES_PER_DAY).fill(false);
     const next = [...work];
     if (slotIndex >= 0 && slotIndex < next.length) next[slotIndex] = true;
     return { ...d, work_time: next };
@@ -776,7 +783,7 @@ export function getProspectiveWorkWarnings(
 ): string[] {
   const { jurisdictionCode, ...rest } = options;
   const slotOffsetWithinToday = getSlotOffsetWithinTodayLocal(undefined, jurisdictionCode);
-  const injectSlot = Math.min(47, slotOffsetWithinToday);
+  const injectSlot = Math.min(MINUTES_PER_DAY - 1, Math.max(0, slotOffsetWithinToday));
   const cloned = cloneDaysAndInjectWork(days, currentDayIndex, injectSlot);
   const results = runComplianceChecks(cloned, {
     ...rest,

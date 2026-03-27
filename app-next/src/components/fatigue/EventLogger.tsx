@@ -6,6 +6,7 @@ import { Briefcase, Coffee, Moon, Square, Clock, AlertTriangle, CheckCircle2, Tr
 
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { getTodayLocalDateString, getSheetDayDateString } from "@/lib/weeks";
+import { deriveMinuteGridFromEvents, MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
 
 const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   work: { label: "Work", icon: Briefcase },
@@ -32,23 +33,9 @@ function getElapsedSeconds(isoString: string) {
   return Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
 }
 
-/** Any gap between work shorter than this (minutes) is recorded as break, not non-work. */
-const MAX_GAP_AS_BREAK_MINUTES = 30;
-const MINUTES_PER_SLOT = 30;
-
 /**
- * Derive 30-min slot arrays from events for one day (00:00–24:00 local).
- * Work and break come from logged segments; all other time (including before
- * first event, after last event, non-work time, and end-shift) counts as non-work.
- * Rule: non-work is retrospective only — never shown after the present time on the current day.
- * Rule: work is continuous across midnight when there is no End shift — previous day's
- * work/break rolls into the next day from 00:00 until the first event (carryOver).
- * Rule: any gap shorter than 30 minutes between work is recorded as break, not non-work.
- * Rule: a completed break (has next event) shorter than 10 minutes is allocated to work time; ongoing breaks stay in break bar.
- */
-/**
- * When set (and only for the current day), work/break segments are capped at this time
- * and time from assumeIdleFromMs to "now" is shown as non-work ("driver forgot" / assume idle).
+ * Derive minute-resolution coverage (1440 booleans per day) from events.
+ * Legacy `carryOverEndSlot` (half-hour index) is converted to minutes (×30).
  */
 export function deriveGridFromEvents(
   events: { time: string; type: string }[] | undefined,
@@ -56,6 +43,7 @@ export function deriveGridFromEvents(
   options?: {
     carryOverType?: "work" | "break";
     carryOverEndSlot?: number;
+    carryOverEndMinute?: number;
     assumeIdleFromMs?: number;
     isToday?: boolean;
     dayStart?: number;
@@ -63,138 +51,13 @@ export function deriveGridFromEvents(
     todayStr?: string;
   }
 ): { work_time: boolean[]; breaks: boolean[]; non_work: boolean[] } {
-  const work_time = Array(48).fill(false);
-  const breaks = Array(48).fill(false);
-  const non_work = Array(48).fill(false);
-  const todayStr = options?.todayStr ?? getTodayLocalDateString();
-  if (dateStr > todayStr) return { work_time, breaks, non_work };
-  const isToday = dateStr === todayStr;
-  const now = Date.now();
-  const dayStart = options?.dayStart ?? new Date(dateStr + "T00:00:00").getTime();
-  const dayEnd = new Date(dateStr + "T23:59:59").getTime();
-  const assumeIdleFromMs = options?.assumeIdleFromMs && options?.isToday ? options.assumeIdleFromMs : undefined;
-  const workBreakCap = assumeIdleFromMs != null ? Math.min(now, assumeIdleFromMs) : undefined;
-  const effectiveEnd = isToday ? Math.min(dayEnd, now) : dayEnd;
-  const maxSlotExclusive = isToday ? Math.min(48, Math.ceil((effectiveEnd - dayStart) / (30 * 60 * 1000))) : 48;
-  const workBreakMaxSlot =
-    workBreakCap != null ? Math.min(maxSlotExclusive, Math.max(0, Math.ceil((workBreakCap - dayStart) / (30 * 60 * 1000)))) : maxSlotExclusive;
-
-  const { carryOverType, carryOverEndSlot = 0 } = options ?? {};
-  if (carryOverType && carryOverEndSlot > 0) {
-    const end = Math.min(carryOverEndSlot, workBreakMaxSlot);
-    for (let s = 0; s < end; s++) {
-      if (carryOverType === "work") work_time[s] = true;
-      else breaks[s] = true;
-    }
-  }
-
-  if (!events?.length) {
-    for (let s = 0; s < maxSlotExclusive; s++) {
-      if (!work_time[s] && !breaks[s]) non_work[s] = true;
-    }
-    const withShortGapsAsBreak = reclassifyShortGapsAsBreak(work_time, breaks, non_work, maxSlotExclusive);
-    return reclassifyLongBreaksAsNonWork(
-      withShortGapsAsBreak.work_time,
-      withShortGapsAsBreak.breaks,
-      withShortGapsAsBreak.non_work,
-      maxSlotExclusive
-    );
-  }
-
-  for (let i = 0; i < events.length; i++) {
-    const ev = events[i];
-    const nextEv = events[i + 1];
-    if (ev.type === "stop") continue;
-    const start = new Date(ev.time).getTime();
-    const segmentEnd = nextEv ? new Date(nextEv.time).getTime() : (isToday ? now : dayEnd);
-    const end = workBreakCap != null && segmentEnd > workBreakCap ? workBreakCap : segmentEnd;
-    const clampedStart = Math.max(start, dayStart);
-    const clampedEnd = Math.min(end, workBreakCap ?? effectiveEnd);
-    const durationMinutes = Math.floor((clampedEnd - clampedStart) / 60000);
-    const startSlot = Math.floor((clampedStart - dayStart) / (30 * 60 * 1000));
-    const endSlot = Math.ceil((clampedEnd - dayStart) / (30 * 60 * 1000));
-    const isCompletedBreak = ev.type === "break" && nextEv != null;
-    const treatBreakAsWork = isCompletedBreak && durationMinutes < MIN_BREAK_BLOCK_MINUTES;
-    for (let s = Math.max(0, startSlot); s < Math.min(workBreakMaxSlot, endSlot); s++) {
-      if (ev.type === "work" || treatBreakAsWork) work_time[s] = true;
-      else if (ev.type === "break") breaks[s] = true;
-    }
-  }
-  for (let s = 0; s < maxSlotExclusive; s++) {
-    if (!work_time[s] && !breaks[s]) non_work[s] = true;
-  }
-  const withShortGapsAsBreak = reclassifyShortGapsAsBreak(work_time, breaks, non_work, maxSlotExclusive);
-  return reclassifyLongBreaksAsNonWork(
-    withShortGapsAsBreak.work_time,
-    withShortGapsAsBreak.breaks,
-    withShortGapsAsBreak.non_work,
-    maxSlotExclusive
-  );
-}
-
-/**
- * Reclassify short non-work gaps (<= MAX_GAP_AS_BREAK_MINUTES) as break so they are
- * not counted as non-work time. In slot terms, a run of 1 slot = 30 min qualifies.
- */
-function reclassifyShortGapsAsBreak(
-  work_time: boolean[],
-  breaks: boolean[],
-  non_work: boolean[],
-  maxSlotExclusive: number
-): { work_time: boolean[]; breaks: boolean[]; non_work: boolean[] } {
-  const maxSlotsAsBreak = Math.ceil(MAX_GAP_AS_BREAK_MINUTES / MINUTES_PER_SLOT);
-  for (let s = 0; s < maxSlotExclusive; ) {
-    if (!non_work[s]) {
-      s++;
-      continue;
-    }
-    let runEnd = s;
-    while (runEnd < maxSlotExclusive && non_work[runEnd]) runEnd++;
-    const runSlots = runEnd - s;
-    const runMinutes = runSlots * MINUTES_PER_SLOT;
-    const isShortGap = runMinutes <= MAX_GAP_AS_BREAK_MINUTES;
-    const hasWorkBefore = s > 0 && work_time[s - 1];
-    const hasWorkAfter = runEnd < maxSlotExclusive && work_time[runEnd];
-    if (isShortGap && (hasWorkBefore || hasWorkAfter)) {
-      for (let k = s; k < runEnd; k++) {
-        breaks[k] = true;
-        non_work[k] = false;
-      }
-    }
-    s = runEnd;
-  }
-  return { work_time, breaks, non_work };
-}
-
-/**
- * Reclassify long break runs (> MAX_GAP_AS_BREAK_MINUTES) as non-work so that
- * any break longer than 30 minutes is counted as non-work time, regardless of
- * whether it came from logged Break events or inferred gaps.
- */
-function reclassifyLongBreaksAsNonWork(
-  work_time: boolean[],
-  breaks: boolean[],
-  non_work: boolean[],
-  maxSlotExclusive: number
-): { work_time: boolean[]; breaks: boolean[]; non_work: boolean[] } {
-  const minSlotsAsNonWork = Math.floor(MAX_GAP_AS_BREAK_MINUTES / MINUTES_PER_SLOT) + 1; // >30min => >=2 slots
-  for (let s = 0; s < maxSlotExclusive; ) {
-    if (!breaks[s]) {
-      s++;
-      continue;
-    }
-    let runEnd = s;
-    while (runEnd < maxSlotExclusive && breaks[runEnd]) runEnd++;
-    const runSlots = runEnd - s;
-    if (runSlots >= minSlotsAsNonWork) {
-      for (let k = s; k < runEnd; k++) {
-        non_work[k] = true;
-        breaks[k] = false;
-      }
-    }
-    s = runEnd;
-  }
-  return { work_time, breaks, non_work };
+  const { carryOverEndSlot, ...rest } = options ?? {};
+  const carryOverEndMinute =
+    rest.carryOverEndMinute ?? (carryOverEndSlot != null ? carryOverEndSlot * 30 : undefined);
+  return deriveMinuteGridFromEvents(events, dateStr, {
+    ...rest,
+    carryOverEndMinute,
+  });
 }
 
 /**
@@ -212,7 +75,7 @@ export function applyLast24hBreakNonWorkRule<T extends { work_time?: boolean[]; 
     if (dateStr >= last24hBreak) return d;
     const hasWorkOnDay = (d.work_time || []).some(Boolean);
     if (hasWorkOnDay) return d;
-    return { ...d, non_work: Array(48).fill(false) };
+    return { ...d, non_work: Array(MINUTES_PER_DAY).fill(false) };
   });
 }
 
@@ -231,7 +94,8 @@ export function getEffectiveOpenActivityAtDayEnd(
   if (dateStr < todayStr) {
     const w = day.work_time ?? [];
     const b = day.breaks ?? [];
-    for (let s = 47; s >= 0; s--) {
+    const len = w.length === 48 ? 48 : Math.min(w.length || MINUTES_PER_DAY, MINUTES_PER_DAY);
+    for (let s = len - 1; s >= 0; s--) {
       if (w[s]) return "work";
       if (b[s]) return "break";
     }
@@ -265,27 +129,29 @@ export function deriveDaysWithRollover<T extends { events?: { time: string; type
     const dayEnd = new Date(dateStr + "T23:59:59").getTime();
     const now = Date.now();
     const effectiveEnd = isToday ? Math.min(dayEnd, now) : dayEnd;
-    const maxSlotExclusive = isToday ? Math.min(48, Math.ceil((effectiveEnd - dayStart) / (30 * 60 * 1000))) : 48;
+    const maxMinuteExclusive = isToday
+      ? Math.min(MINUTES_PER_DAY, Math.max(0, Math.ceil((effectiveEnd - dayStart) / 60000)))
+      : MINUTES_PER_DAY;
 
     const prevDateStr = i > 0 ? getSheetDayDateString(weekStarting, i - 1) : "";
     const carryOverType =
       i > 0 ? getEffectiveOpenActivityAtDayEnd(result[i - 1], prevDateStr, todayStr) : null;
-    let carryOverEndSlot = 0;
+    let carryOverEndMinute = 0;
     if (carryOverType) {
       const firstEv = currentEvents[0];
       if (firstEv) {
         const firstEvTime = new Date(firstEv.time).getTime();
-        carryOverEndSlot = Math.min(maxSlotExclusive, Math.max(0, Math.ceil((firstEvTime - dayStart) / (30 * 60 * 1000))));
+        carryOverEndMinute = Math.min(maxMinuteExclusive, Math.max(0, Math.ceil((firstEvTime - dayStart) / 60000)));
       } else {
-        carryOverEndSlot = maxSlotExclusive;
+        carryOverEndMinute = maxMinuteExclusive;
       }
     }
 
     const assumeIdleFrom = (result[i] as { assume_idle_from?: string }).assume_idle_from;
 
-    const derived = deriveGridFromEvents(currentEvents.length ? currentEvents : undefined, dateStr, {
+    const derived = deriveMinuteGridFromEvents(currentEvents.length ? currentEvents : undefined, dateStr, {
       carryOverType: carryOverType ?? undefined,
-      carryOverEndSlot: carryOverEndSlot || undefined,
+      carryOverEndMinute: carryOverEndMinute || undefined,
       assumeIdleFromMs: assumeIdleFrom ? new Date(assumeIdleFrom).getTime() : undefined,
       isToday,
       dayStart,

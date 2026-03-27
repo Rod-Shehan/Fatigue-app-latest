@@ -23,7 +23,7 @@ describe("sheetEligibleForAutoClosePastWeek", () => {
   });
 
   it("grid work without events → not eligible", () => {
-    const days = [{ events: [], work_time: Array(48).fill(true), breaks: Array(48).fill(false) }];
+    const days = [{ events: [], work_time: Array(1440).fill(true), breaks: Array(1440).fill(false) }];
     expect(sheetEligibleForAutoClosePastWeek("2026-03-16", days, thisSun)).toBe(false);
   });
 

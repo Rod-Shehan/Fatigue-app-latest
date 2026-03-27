@@ -8,6 +8,7 @@ import { createSheetOfflineFirst, listSheetsOfflineFirst } from "@/lib/offline-a
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
+import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 const EMPTY_DAY = () => ({
@@ -17,9 +18,9 @@ const EMPTY_DAY = () => ({
   destination: "",
   start_kms: null,
   end_kms: null,
-  work_time: Array(48).fill(false),
-  breaks: Array(48).fill(false),
-  non_work: Array(48).fill(false),
+  work_time: Array(MINUTES_PER_DAY).fill(false),
+  breaks: Array(MINUTES_PER_DAY).fill(false),
+  non_work: Array(MINUTES_PER_DAY).fill(false),
 });
 
 function getThisWeekSunday() {

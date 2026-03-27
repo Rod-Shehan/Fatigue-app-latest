@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { prepareRoadsidePdfExtras } from "@/lib/roadside-pdf-extras";
 import { ROADSIDE_PDF_DISCLAIMER } from "@/lib/roadside-pdf";
 import { PRODUCT_NAME_EXPORT, TAGLINE_DRIVER } from "@/lib/branding";
+import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
+import { halfHourSlotsToRanges, minuteBooleansToRanges } from "@/lib/coverage/grid-to-ranges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,29 +34,6 @@ function getDateStr(weekStarting: string | null, dayIndex: number): string {
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
   return `${dd}/${mm}/${yy}`;
-}
-
-function slotsToRanges(
-  slots: boolean[] | undefined,
-  capAtMin: number
-): { startMin: number; endMin: number }[] {
-  if (!slots || slots.length < 48) return [];
-  const ranges: { startMin: number; endMin: number }[] = [];
-  let start: number | null = null;
-  for (let i = 0; i < 48; i++) {
-    const slotStart = i * 30;
-    const slotEnd = (i + 1) * 30;
-    const on = !!slots[i];
-    if (on && start === null) start = slotStart;
-    if (!on && start !== null) {
-      ranges.push({ startMin: start, endMin: Math.min(slotStart, capAtMin) });
-      start = null;
-    }
-    if (on && i === 47) {
-      ranges.push({ startMin: start!, endMin: Math.min(slotEnd, capAtMin) });
-    }
-  }
-  return ranges;
 }
 
 function perthDayStartUtcMs(ymd: string): number {
@@ -165,14 +144,22 @@ function getDaySegments(
   const effectiveEndMin = getEffectiveDayEndMinutes(dateStr, todayStr);
   const events = day?.events || [];
   const slotBased = day?.work_time != null && day?.breaks != null && day?.non_work != null;
+  const isMinuteCoverage = slotBased && (day.work_time?.length ?? 0) >= MINUTES_PER_DAY;
+  if (isMinuteCoverage) {
+    return {
+      work_time: minuteBooleansToRanges(day.work_time!.map((w, i) => w && !day.breaks![i]), TOTAL_MIN),
+      breaks: minuteBooleansToRanges(day.breaks, TOTAL_MIN),
+      non_work: minuteBooleansToRanges(day.non_work, effectiveEndMin),
+    };
+  }
   if (events.length > 0) {
     return buildSegmentsFromEvents(events, dateStr, effectiveEndMin);
   }
   if (slotBased) {
     return {
-      work_time: slotsToRanges(day.work_time!.map((w, i) => w && !day.breaks![i]), TOTAL_MIN),
-      breaks: slotsToRanges(day.breaks, TOTAL_MIN),
-      non_work: slotsToRanges(day.non_work, effectiveEndMin),
+      work_time: halfHourSlotsToRanges(day.work_time!.map((w, i) => w && !day.breaks![i]), TOTAL_MIN),
+      breaks: halfHourSlotsToRanges(day.breaks, TOTAL_MIN),
+      non_work: halfHourSlotsToRanges(day.non_work, effectiveEndMin),
     };
   }
   return buildSegmentsFromEvents(undefined, dateStr, effectiveEndMin);

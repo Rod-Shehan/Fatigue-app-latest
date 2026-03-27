@@ -65,6 +65,7 @@ import { getProspectiveWorkWarnings, getSlotOffsetWithinTodayLocal } from "@/lib
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
 import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/rego-kms-validation";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
+import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 const EMPTY_DAY = (): DayData => ({
@@ -74,9 +75,9 @@ const EMPTY_DAY = (): DayData => ({
   destination: "",
   start_kms: undefined,
   end_kms: undefined,
-  work_time: Array(48).fill(false),
-  breaks: Array(48).fill(false),
-  non_work: Array(48).fill(false),
+  work_time: Array(MINUTES_PER_DAY).fill(false),
+  breaks: Array(MINUTES_PER_DAY).fill(false),
+  non_work: Array(MINUTES_PER_DAY).fill(false),
 });
 
 function getThisWeekSunday() {
