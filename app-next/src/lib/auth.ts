@@ -5,8 +5,11 @@ import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
 /**
- * Production sign-in (no passwordHash on user):
- * set NEXTAUTH_CREDENTIALS_PASSWORD and use that exact string as the password.
+ * Production sign-in:
+ * - User with passwordHash: bcrypt must match (unless NEXTAUTH_SHARED_PASSWORD_PRIORITY is set — see below).
+ * - User without passwordHash: NEXTAUTH_CREDENTIALS_PASSWORD must be set; password field must match (trimmed).
+ * - NEXTAUTH_SHARED_PASSWORD_PRIORITY=true: if NEXTAUTH_CREDENTIALS_PASSWORD matches, sign-in succeeds even when
+ *   a per-user hash exists (fleet password overrides forgotten individual passwords).
  * Dev-only: blank credentials / email + empty password (see authorize below).
  */
 export const authOptions: NextAuthOptions = {
@@ -24,6 +27,13 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const email = (credentials?.email ?? "").trim().toLowerCase();
         const password = credentials?.password ?? "";
+        const sharedPassRaw = process.env.NEXTAUTH_CREDENTIALS_PASSWORD;
+        const sharedPass =
+          typeof sharedPassRaw === "string" && sharedPassRaw.trim().length > 0 ? sharedPassRaw.trim() : "";
+        const sharedPasswordPriority =
+          process.env.NEXTAUTH_SHARED_PASSWORD_PRIORITY === "1" ||
+          process.env.NEXTAUTH_SHARED_PASSWORD_PRIORITY === "true";
+
         // Dev only: allow blank credentials to sign in as a dev user (login page stays, fields can be empty)
         if (process.env.NODE_ENV === "development" && email === "" && password === "") {
           const devEmail = "dev@localhost";
@@ -37,11 +47,26 @@ export const authOptions: NextAuthOptions = {
         }
         if (!email) return null;
 
-        // If the user has a manager-set password, require it (no passwordless/shared bypass).
         const existing = await prisma.user.findUnique({
           where: { email },
           select: { id: true, email: true, name: true, passwordHash: true },
         });
+
+        const sharedPasswordMatches = sharedPass.length > 0 && password.trim() === sharedPass;
+
+        // Optional: fleet shared password wins over per-user hash (forgotten passwords, rotated shared secret).
+        if (sharedPasswordPriority && sharedPasswordMatches) {
+          let user = existing;
+          if (!user) {
+            user = await prisma.user.create({
+              data: { email, name: email.split("@")[0] },
+              select: { id: true, email: true, name: true, passwordHash: true },
+            });
+          }
+          return { id: user.id, email: user.email, name: user.name };
+        }
+
+        // If the user has a manager-set password, require it (unless shared priority handled above).
         if (existing?.passwordHash) {
           if (!password) return null;
           const ok = await bcrypt.compare(password, existing.passwordHash);
@@ -61,10 +86,8 @@ export const authOptions: NextAuthOptions = {
           return { id: user.id, email: user.email, name: user.name };
         }
 
-        // Allow signing in with a shared password (NEXTAUTH_CREDENTIALS_PASSWORD)
-        // in all environments. User records are created on first sign-in.
-        const sharedPass = process.env.NEXTAUTH_CREDENTIALS_PASSWORD;
-        if (sharedPass && password === sharedPass) {
+        // Shared password when user has no passwordHash (or hash path skipped). Trimmed match.
+        if (sharedPasswordMatches) {
           let user = existing;
           if (!user) {
             user = await prisma.user.create({

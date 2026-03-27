@@ -40,13 +40,17 @@ function LoginForm() {
       // Let NextAuth perform the redirect after setting cookies to avoid race conditions
       // where a client-side push happens before the session is available.
       const res = await signIn("credentials", {
-        email,
+        email: email.trim().toLowerCase(),
         password,
         callbackUrl: safeRedirect,
         redirect: false,
       });
       if (res?.error) {
-        setError("Invalid email or password.");
+        setError(
+          res.error === "Configuration"
+            ? "Sign-in is misconfigured on the server (check NEXTAUTH_SECRET and NEXTAUTH_URL)."
+            : "Invalid email or password. If the fleet shared password should work, set NEXTAUTH_SHARED_PASSWORD_PRIORITY=true on the server, or ask a manager to reset your password in Approved Drivers."
+        );
         setLoading(false);
         return;
       }
@@ -153,10 +157,13 @@ function LoginForm() {
             </>
           ) : (
             <>
-              Use the password set for your account (e.g. when a manager created it), or the shared server password if your
-              deployment sets <code className="text-[10px]">NEXTAUTH_CREDENTIALS_PASSWORD</code>.{" "}
+              Use the password your manager set for your account, or the fleet shared password from server config (
+              <code className="text-[10px]">NEXTAUTH_CREDENTIALS_PASSWORD</code>). If the shared password still fails, the
+              account may have an older hash — set{" "}
+              <code className="text-[10px]">NEXTAUTH_SHARED_PASSWORD_PRIORITY=true</code> on the server or reset the
+              password in Approved Drivers.{" "}
               <span className="text-slate-500 dark:text-slate-400">
-                Blank password is not accepted on this server — only in local development.
+                Blank password is not accepted here — only in local development.
               </span>
             </>
           )}
