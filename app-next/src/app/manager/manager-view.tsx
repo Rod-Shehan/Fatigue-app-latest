@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type DayData, type FatigueSheet, type SheetUpdatePayload } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -405,8 +406,8 @@ export function ManagerView() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
         <PageHeader
-          title="Manager dashboard"
-          subtitle="View sheets, map events, and compliance across drivers"
+          title={PRODUCT_NAME}
+          subtitle="Manager dashboard — view sheets, map events, and compliance across drivers"
           icon={<LayoutDashboard className="w-5 h-5" />}
           actions={
             <Button

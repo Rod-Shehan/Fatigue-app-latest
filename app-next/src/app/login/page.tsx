@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, LayoutDashboard } from "lucide-react";
+import { PRODUCT_NAME, TAGLINE_VEHICLE } from "@/lib/branding";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -66,10 +67,10 @@ function LoginForm() {
             <LogIn className="w-6 h-6 text-white dark:text-slate-900" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-            Driver Fatigue Log
+            {PRODUCT_NAME}
           </h1>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-            WA Commercial Vehicle Fatigue Management
+            {TAGLINE_VEHICLE}
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
             Drivers log shifts. Managers review compliance and event maps.

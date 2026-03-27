@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, UserCheck, UserX, Loader2, Users, Pencil } from "lucide-react";
@@ -131,8 +132,8 @@ export function DriversList() {
         <PageHeader
           backHref="/sheets"
           backLabel="Your Sheets"
-          title="Approved Drivers"
-          subtitle="Manage the driver roster and optional WA CVD medical expiry dates"
+          title={PRODUCT_NAME}
+          subtitle="Approved drivers — manage the roster and optional WA CVD medical expiry dates"
           icon={<Users className="w-5 h-5" />}
         />
         <form

@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSheetOfflineFirst } from "@/lib/offline-api";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { useSession } from "next-auth/react";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
 import { FileText, Loader2 } from "lucide-react";
@@ -35,7 +36,7 @@ export default function ShiftLogPage({ sheetId }: { sheetId: string }) {
         <div className="max-w-[800px] mx-auto px-4 py-6">
           <PageHeader
             backHref={`/sheets/${sheetId}`}
-            backLabel="Fatigue Record"
+            backLabel={PRODUCT_NAME}
             title="Shift Log"
             subtitle="Loading…"
             driverDisplayName={isManager ? undefined : getDisplayNameFromSession(session ?? null) || undefined}
@@ -69,7 +70,7 @@ export default function ShiftLogPage({ sheetId }: { sheetId: string }) {
       <div className="max-w-[800px] mx-auto px-4 py-6">
         <PageHeader
           backHref={`/sheets/${sheetId}`}
-          backLabel="Fatigue Record"
+          backLabel={PRODUCT_NAME}
           title="Shift Log"
           subtitle={subtitle || undefined}
           driverDisplayName={driverDisplayName}

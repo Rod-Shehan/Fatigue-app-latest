@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, type ComplianceCheckResult, type FatigueSheet, type DayData, type Driver } from "@/lib/api";
+import { PRODUCT_NAME, TAGLINE_DRIVER } from "@/lib/branding";
 import {
   getSheetOfflineFirst,
   updateSheetOfflineFirst,
@@ -694,8 +695,8 @@ export function SheetDetail({
           <PageHeader
             backHref="/sheets"
             backLabel="Your Sheets"
-            title="Fatigue Record"
-            subtitle="WA Commercial Driver Fatigue Management"
+            title={PRODUCT_NAME}
+            subtitle={TAGLINE_DRIVER}
             driverDisplayName={headerDriverDisplayName}
           />
           <div className="flex flex-col items-center justify-center py-16 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
@@ -739,8 +740,8 @@ export function SheetDetail({
         <PageHeader
           backHref="/sheets"
           backLabel="Your Sheets"
-          title="Fatigue Record"
-          subtitle="WA Commercial Driver Fatigue Management"
+          title={PRODUCT_NAME}
+          subtitle={TAGLINE_DRIVER}
           driverDisplayName={headerDriverDisplayName}
           driverIdentity={driverPageIdentity}
           actions={
@@ -775,7 +776,7 @@ export function SheetDetail({
 
         <nav
           className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-3"
-          aria-label="Fatigue record toolbar"
+          aria-label={`${PRODUCT_NAME} toolbar`}
         >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { UserPlus, Loader2, CheckCircle2, Users } from "lucide-react";
 
 const MANAGERS_QUERY_KEY = ["managers"] as const;
@@ -48,8 +49,8 @@ export function AddManagersView() {
         <PageHeader
           backHref="/manager"
           backLabel="Manager dashboard"
-          title="Add Managers"
-          subtitle="Create manager accounts for sign-in"
+          title={PRODUCT_NAME}
+          subtitle="Add managers — create manager accounts for sign-in"
           icon={<UserPlus className="w-5 h-5" />}
         />
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">

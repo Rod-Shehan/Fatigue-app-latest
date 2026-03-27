@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Label } from "@/components/ui/label";
@@ -80,8 +81,8 @@ export function ManagerMapView() {
         <PageHeader
           backHref="/manager"
           backLabel="Manager dashboard"
-          title="Event map"
-          subtitle="Driver time inputs with location"
+          title={PRODUCT_NAME}
+          subtitle="Event map — driver time inputs with location"
           icon={<Map className="w-5 h-5 sm:w-6 sm:h-6" />}
         />
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">

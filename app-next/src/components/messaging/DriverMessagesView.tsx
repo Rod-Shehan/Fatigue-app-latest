@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { api, type FatigueSheet } from "@/lib/api";
 import { resolveDriverBubbleName } from "@/lib/messaging-display";
 import { Button } from "@/components/ui/button";
@@ -125,8 +126,8 @@ export function DriverMessagesView() {
         <PageHeader
           backHref="/sheets"
           backLabel="Your sheets"
-          title="Messages"
-          subtitle="Contact your manager — training, questions, or sheet edit requests"
+          title={PRODUCT_NAME}
+          subtitle="Messages — contact your manager for training, questions, or sheet edit requests"
           driverDisplayName={headerDriverName ?? undefined}
           icon={<MessageSquare className="w-5 h-5" />}
           actions={

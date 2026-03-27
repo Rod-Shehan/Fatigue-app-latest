@@ -28,12 +28,12 @@ const PHRASES: Record<VoiceIntent, readonly string[]> = {
 } as const;
 
 /** Marketing faux wake — spoken in the same utterance as the command (no second listen). */
-export const WAKE_PHRASE_DISPLAY = "Hey Circadia";
+export const WAKE_PHRASE_DISPLAY = "Hey Circadia 24";
 
-const WAKE_PREFIX = "hey circadia";
+const WAKE_PREFIX = "hey circadia 24";
 
 /**
- * Single phrase: "Hey Circadia" + command in one go, e.g. "Hey Circadia start shift".
+ * Single phrase: "Hey Circadia 24" + command in one go, e.g. "Hey Circadia 24 start shift".
  * Avoids tap-then-wait-then-command (double handling). Still requires one mic tap for the browser.
  */
 export function matchWakeAndCommand(transcript: string): { intent: VoiceIntent; matchedPhrase: string } | null {

@@ -8,6 +8,7 @@ import { listSheetsOfflineFirst } from "@/lib/offline-api";
 import { parseLocalDate } from "@/lib/weeks";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME, TAGLINE_VEHICLE } from "@/lib/branding";
 import { format } from "date-fns";
 import { signOut, useSession } from "next-auth/react";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
@@ -51,8 +52,8 @@ export function SheetsList() {
           <PageHeader
             backHref={backHref}
             backLabel={backLabel}
-            title="Driver Fatigue Log"
-            subtitle="WA Commercial Vehicle Fatigue Management"
+            title={PRODUCT_NAME}
+            subtitle={TAGLINE_VEHICLE}
             driverDisplayName={driverDisplayName}
             icon={<Truck className="w-5 h-5" />}
             actions={

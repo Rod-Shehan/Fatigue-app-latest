@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { api } from "@/lib/api";
 import { resolveDriverBubbleName } from "@/lib/messaging-display";
 import { Button } from "@/components/ui/button";
@@ -86,8 +87,8 @@ export function ManagerMessagesView() {
         <PageHeader
           backHref="/manager"
           backLabel="Manager dashboard"
-          title="Messages"
-          subtitle="Driver questions and sheet edit requests"
+          title={PRODUCT_NAME}
+          subtitle="Messages — driver questions and sheet edit requests"
           icon={<MessageSquare className="w-5 h-5" />}
         />
 

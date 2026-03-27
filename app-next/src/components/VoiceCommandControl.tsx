@@ -12,6 +12,7 @@ import {
   type SpeechRecognitionCtor,
   type VoiceIntent,
   VOICE_COMMAND_HINT,
+  WAKE_PHRASE_DISPLAY,
 } from "@/lib/voice-command-input";
 
 type RecInstance = InstanceType<SpeechRecognitionCtor>;
@@ -165,7 +166,7 @@ export function VoiceCommandControl({ voiceLabels, onConfirmIntent, className, d
           title={
             supported
               ? listening
-                ? "Listening… say Hey Circadia and your command in one phrase"
+                ? `Listening… say ${WAKE_PHRASE_DISPLAY} and your command in one phrase`
                 : `Voice — ${VOICE_COMMAND_HINT}`
               : "Voice commands are not supported in this browser"
           }

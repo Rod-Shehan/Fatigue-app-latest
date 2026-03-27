@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PRODUCT_NAME, TAGLINE_VEHICLE } from "@/lib/branding";
 import { Providers } from "@/components/providers";
 import { ThemeToggleInLayout } from "@/components/theme-toggle-in-layout";
 
 export const metadata: Metadata = {
-  title: "Driver Fatigue Log – WA",
-  description: "WA Commercial Vehicle Fatigue Management",
+  title: `${PRODUCT_NAME} – WA`,
+  description: `${PRODUCT_NAME} — ${TAGLINE_VEHICLE}`,
 };
 
 const themeScript = `

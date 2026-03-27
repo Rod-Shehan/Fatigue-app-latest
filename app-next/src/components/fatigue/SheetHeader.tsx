@@ -164,7 +164,7 @@ export default function SheetHeader({
       {/* Sheet-level rule set (Australia-wide roadmap); WA only for now */}
       <div className="space-y-1.5 max-w-md">
         <Label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block">
-          Fatigue rules
+          Rule set
         </Label>
         <Select
           value={sheetData.jurisdiction_code || DEFAULT_JURISDICTION_CODE}

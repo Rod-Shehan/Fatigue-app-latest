@@ -6,6 +6,7 @@ import { api, type Rego } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
+import { PRODUCT_NAME } from "@/lib/branding";
 import { Loader2, Plus, Trash2, Truck } from "lucide-react";
 import { useState } from "react";
 
@@ -43,8 +44,8 @@ export function RegosAdmin() {
         <PageHeader
           backHref="/manager"
           backLabel="Manager dashboard"
-          title="Truck Rego List"
-          subtitle="Manage regos for the sheet dropdown (admin)"
+          title={PRODUCT_NAME}
+          subtitle="Truck rego list — manage regos for the sheet dropdown (admin)"
           icon={<Truck className="w-5 h-5" />}
         />
 

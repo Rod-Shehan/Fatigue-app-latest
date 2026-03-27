@@ -4,6 +4,7 @@ import { getSessionForSheetAccess, canAccessSheet } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { prepareRoadsidePdfExtras } from "@/lib/roadside-pdf-extras";
 import { ROADSIDE_PDF_DISCLAIMER } from "@/lib/roadside-pdf";
+import { PRODUCT_NAME_EXPORT, TAGLINE_DRIVER } from "@/lib/branding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -285,7 +286,7 @@ function buildRoadsideSectionHtml(r: RoadsidePdfPayload): string {
   return `
   <section class="roadside">
     <h2>Roadside compliance summary</h2>
-    <p class="roadMeta"><strong>Driver:</strong> ${escapeHtml(r.driverName)} &nbsp;|&nbsp; <strong>Week starting:</strong> ${escapeHtml(r.weekStarting)} &nbsp;|&nbsp; <strong>Fatigue rules:</strong> ${escapeHtml(r.jurisdictionLabel)}</p>
+    <p class="roadMeta"><strong>Driver:</strong> ${escapeHtml(r.driverName)} &nbsp;|&nbsp; <strong>Week starting:</strong> ${escapeHtml(r.weekStarting)} &nbsp;|&nbsp; <strong>Rules:</strong> ${escapeHtml(r.jurisdictionLabel)}</p>
     <p class="roadCounts"><strong>Violations:</strong> ${r.violations.length} &nbsp;&nbsp; <strong>Warnings:</strong> ${r.warnings.length}</p>
     <div class="roadCols">
       <div class="roadCol">
@@ -485,8 +486,8 @@ function renderPdfHtml(opts: {
       <div class="header">
         <div class="headerRow">
           <div>
-            <div class="title">FATIGUE RECORD SHEET</div>
-            <div class="subtitle">WA Commercial Driver Fatigue Management</div>
+            <div class="title">${PRODUCT_NAME_EXPORT}</div>
+            <div class="subtitle">${TAGLINE_DRIVER}</div>
           </div>
           <div class="generated">Generated: ${escapeHtml(generatedAtLabel)}</div>
         </div>
@@ -745,10 +746,10 @@ export async function GET(
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("FATIGUE RECORD SHEET", margin, 11);
+    doc.text(PRODUCT_NAME_EXPORT, margin, 11);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("WA Commercial Driver Fatigue Management", margin, 18);
+    doc.text(TAGLINE_DRIVER, margin, 18);
     doc.text(
       `Generated: ${new Date().toLocaleString("en-AU", { timeZone: "Australia/Perth" })}`,
       pageW - margin,
