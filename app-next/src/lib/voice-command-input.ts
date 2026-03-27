@@ -27,24 +27,6 @@ const PHRASES: Record<VoiceIntent, readonly string[]> = {
   stop: ["end shift", "end my shift", "finish shift", "finish my shift", "stop shift"],
 } as const;
 
-/** Marketing faux wake — spoken in the same utterance as the command (no second listen). */
-export const WAKE_PHRASE_DISPLAY = "Hey Circadia 24";
-
-const WAKE_PREFIX = "hey circadia 24";
-
-/**
- * Single phrase: "Hey Circadia 24" + command in one go, e.g. "Hey Circadia 24 start shift".
- * Avoids tap-then-wait-then-command (double handling). Still requires one mic tap for the browser.
- */
-export function matchWakeAndCommand(transcript: string): { intent: VoiceIntent; matchedPhrase: string } | null {
-  const n = normalizeVoiceTranscript(transcript);
-  if (!n.startsWith(WAKE_PREFIX)) return null;
-  let rest = n.slice(WAKE_PREFIX.length).trim();
-  rest = rest.replace(/^,\s*/, "").trim();
-  if (!rest) return null;
-  return matchStrictVoiceIntent(rest);
-}
-
 export function matchStrictVoiceIntent(transcript: string): { intent: VoiceIntent; matchedPhrase: string } | null {
   const n = normalizeVoiceTranscript(transcript);
   if (!n) return null;
@@ -89,4 +71,5 @@ export function isVoiceCommandInputSupported(): boolean {
 }
 
 /** Short hint for UI when recognition is unavailable or user needs examples. */
-export const VOICE_COMMAND_HINT = `Say one phrase: "${WAKE_PHRASE_DISPLAY}" plus your command — e.g. "${WAKE_PHRASE_DISPLAY} start shift".`;
+export const VOICE_COMMAND_HINT =
+  'Say a command phrase, e.g. "start shift", "take a break", or "end shift".';

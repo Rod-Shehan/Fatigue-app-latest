@@ -8,11 +8,10 @@ import { cn } from "@/lib/utils";
 import {
   getSpeechRecognitionConstructor,
   isVoiceCommandInputSupported,
-  matchWakeAndCommand,
+  matchStrictVoiceIntent,
   type SpeechRecognitionCtor,
   type VoiceIntent,
   VOICE_COMMAND_HINT,
-  WAKE_PHRASE_DISPLAY,
 } from "@/lib/voice-command-input";
 
 type RecInstance = InstanceType<SpeechRecognitionCtor>;
@@ -91,7 +90,7 @@ export function VoiceCommandControl({ voiceLabels, onConfirmIntent, className, d
     rec.onresult = (ev: Event) => {
       const results = (ev as unknown as { results: { [i: number]: { [j: number]: { transcript: string } } } }).results;
       const transcript = results?.[0]?.[0]?.transcript ?? "";
-      const matched = matchWakeAndCommand(transcript);
+      const matched = matchStrictVoiceIntent(transcript);
       stopListening();
       if (!matched) {
         setBanner(`No match. ${VOICE_COMMAND_HINT}`);
@@ -166,7 +165,7 @@ export function VoiceCommandControl({ voiceLabels, onConfirmIntent, className, d
           title={
             supported
               ? listening
-                ? `Listening… say ${WAKE_PHRASE_DISPLAY} and your command in one phrase`
+                ? "Listening… say a command, e.g. start shift or take a break"
                 : `Voice — ${VOICE_COMMAND_HINT}`
               : "Voice commands are not supported in this browser"
           }

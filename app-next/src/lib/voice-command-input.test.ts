@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  matchStrictVoiceIntent,
-  matchWakeAndCommand,
-  normalizeVoiceTranscript,
-} from "./voice-command-input";
+import { matchStrictVoiceIntent, normalizeVoiceTranscript } from "./voice-command-input";
 
 describe("matchStrictVoiceIntent", () => {
   it("matches exact sensible phrases only", () => {
@@ -32,18 +28,3 @@ describe("matchStrictVoiceIntent", () => {
   });
 });
 
-describe("matchWakeAndCommand", () => {
-  it("requires wake + command in one phrase", () => {
-    expect(matchWakeAndCommand("Hey Circadia 24 start shift")?.intent).toBe("work");
-    expect(matchWakeAndCommand("hey circadia 24, take a break")?.intent).toBe("break");
-    expect(matchWakeAndCommand("hey circadia 24 end shift")?.intent).toBe("stop");
-  });
-
-  it("rejects command without wake", () => {
-    expect(matchWakeAndCommand("start shift")).toBeNull();
-  });
-
-  it("rejects wake alone", () => {
-    expect(matchWakeAndCommand("hey circadia 24")).toBeNull();
-  });
-});
