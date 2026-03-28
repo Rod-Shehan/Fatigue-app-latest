@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
 import { MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
+import { getThisWeekSunday } from "@/lib/weeks";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
 
 const EMPTY_DAY = () => ({
@@ -22,14 +23,6 @@ const EMPTY_DAY = () => ({
   breaks: Array(MINUTES_PER_DAY).fill(false),
   non_work: Array(MINUTES_PER_DAY).fill(false),
 });
-
-function getThisWeekSunday() {
-  const today = new Date();
-  const day = today.getDay();
-  const sunday = new Date(today);
-  sunday.setDate(today.getDate() - day);
-  return sunday.toISOString().split("T")[0];
-}
 
 export function NewSheetRedirect() {
   const router = useRouter();
@@ -79,7 +72,7 @@ export function NewSheetRedirect() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 dark:bg-slate-950 px-4">
       {createMutation.isPending && (
-        <p className="text-slate-500 dark:text-slate-400">Creating new sheet…</p>
+        <p className="text-slate-500 dark:text-slate-400">Opening this week&apos;s record…</p>
       )}
       {createMutation.isSuccess && <p className="text-slate-500 dark:text-slate-400">Redirecting…</p>}
       {createMutation.isError && (
@@ -88,7 +81,7 @@ export function NewSheetRedirect() {
             {createMutation.error instanceof Error ? createMutation.error.message : "Failed to create sheet."}
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Complete and sign this week&apos;s sheet before starting next week.
+            Finish signing open weekly records before opening another week, or open the sheet shown below.
           </p>
           {sheetId && (
             <Link href={`/sheets/${sheetId}`}>
