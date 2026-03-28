@@ -2,7 +2,18 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, Coffee, Moon, Square, ClipboardList, X, Loader2, AlertTriangle, Clock } from "lucide-react";
+import {
+  Briefcase,
+  Coffee,
+  Moon,
+  Square,
+  ClipboardList,
+  X,
+  Loader2,
+  AlertTriangle,
+  Clock,
+  SlidersHorizontal,
+} from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { VoiceAlertsToggle } from "@/components/VoiceAlertsToggle";
@@ -158,6 +169,9 @@ export default function LogBar({
   complianceButton,
   /** When set, tapping Work / Start shift is blocked until driver signs past weeks (see Your Sheets). */
   blockLoggingWorkReason,
+  onShiftSegmentChange,
+  mobileToolsOpen: mobileToolsOpenProp,
+  onMobileToolsOpenChange,
 }: {
   days: DayData[];
   currentDayIndex: number;
@@ -189,6 +203,9 @@ export default function LogBar({
     loading?: boolean;
   };
   blockLoggingWorkReason?: string | null;
+  onShiftSegmentChange?: (shiftSegmentOpen: boolean) => void;
+  mobileToolsOpen?: boolean;
+  onMobileToolsOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
   const [pendingType, setPendingType] = useState<string | null>(null);
@@ -223,6 +240,52 @@ export default function LogBar({
   const currentType = lastEvent && lastEvent.type !== "stop" ? lastEvent.type : null;
   /** Open segment for this driver: only work or break can be ended (last event stop or idle → null). */
   const shiftSegmentOpen = currentType === "work" || currentType === "break";
+
+  const [internalMobileToolsOpen, setInternalMobileToolsOpen] = useState(false);
+  const mobileToolsOpen = mobileToolsOpenProp ?? internalMobileToolsOpen;
+  const setMobileToolsOpen = useCallback(
+    (open: boolean) => {
+      onMobileToolsOpenChange?.(open);
+      if (mobileToolsOpenProp === undefined) setInternalMobileToolsOpen(open);
+    },
+    [onMobileToolsOpenChange, mobileToolsOpenProp]
+  );
+
+  useEffect(() => {
+    onShiftSegmentChange?.(shiftSegmentOpen);
+  }, [shiftSegmentOpen, onShiftSegmentChange]);
+
+  useEffect(() => {
+    if (!shiftSegmentOpen) setMobileToolsOpen(false);
+  }, [shiftSegmentOpen, setMobileToolsOpen]);
+
+  useEffect(() => {
+    if (!mobileToolsOpen || !shiftSegmentOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileToolsOpen, shiftSegmentOpen]);
+
+  useEffect(() => {
+    if (!mobileToolsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileToolsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileToolsOpen, setMobileToolsOpen]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const closeIfDesktop = () => {
+      if (mq.matches) setMobileToolsOpen(false);
+    };
+    mq.addEventListener("change", closeIfDesktop);
+    closeIfDesktop();
+    return () => mq.removeEventListener("change", closeIfDesktop);
+  }, [setMobileToolsOpen]);
 
   /** Faster tick during work/break so compliance header (e.g. pending → OK) updates within a few seconds. */
   useEffect(() => {
@@ -563,6 +626,31 @@ export default function LogBar({
     resetTimerRef.current = setTimeout(clearPending, CONFIRM_RESET_MS);
   };
 
+  /** Larger tap targets on small screens; sheet uses max size for floating panel. */
+  const touchHeaderBtn =
+    "h-14 w-14 min-h-[56px] min-w-[56px] md:h-11 md:w-11 md:min-h-[44px] md:min-w-[44px] rounded-xl md:rounded-lg";
+  const touchHeaderIcon = "h-8 w-8 md:h-6 md:w-6";
+  const touchSheetBtn = "h-16 w-16 min-h-[64px] min-w-[64px] rounded-2xl";
+  const touchSheetIcon = "h-10 w-10";
+
+  const voiceCommandProps = {
+    allowStopIntent: shiftSegmentOpen || pendingType === "stop",
+    voiceLabels: {
+      work:
+        getNextWorkBreakType(currentType) === "work" && currentType === null ? "Start shift" : "Log work",
+      break: "Log break",
+      stop: EVENT_LABELS.stop,
+    },
+    onConfirmIntent: (intent: "work" | "break" | "stop") => {
+      voiceFinalizeNextLogRef.current = true;
+      try {
+        handleLog(intent);
+      } finally {
+        voiceFinalizeNextLogRef.current = false;
+      }
+    },
+  };
+
   const barContent = (
     <div className={cn("space-y-2", complianceBarTextClass)}>
       <div className="flex flex-wrap items-center justify-center gap-3">
@@ -875,29 +963,96 @@ export default function LogBar({
               )}
             </button>
             )}
-          <div className="flex shrink-0 items-center gap-1">
-            <VoiceCommandControl
-              allowStopIntent={shiftSegmentOpen || pendingType === "stop"}
-              voiceLabels={{
-                work:
-                  getNextWorkBreakType(currentType) === "work" && currentType === null ? "Start shift" : "Log work",
-                break: "Log break",
-                stop: EVENT_LABELS.stop,
-              }}
-              onConfirmIntent={(intent) => {
-                voiceFinalizeNextLogRef.current = true;
-                try {
-                  handleLog(intent);
-                } finally {
-                  voiceFinalizeNextLogRef.current = false;
-                }
-              }}
-            />
-            <VoiceAlertsToggle enabled={voiceAlertsEnabled} onChange={setVoiceAlertsEnabled} />
-            <ThemeToggle />
-          </div>
+            {shiftSegmentOpen && (
+              <button
+                type="button"
+                className="md:hidden shrink-0 flex items-center gap-2 min-h-[48px] px-3 py-2 rounded-xl font-semibold text-sm bg-black/25 dark:bg-black/30 border border-white/35 text-slate-900 dark:text-white shadow-sm active:scale-[0.98] transition-transform"
+                onClick={() => setMobileToolsOpen(true)}
+                aria-expanded={mobileToolsOpen}
+                aria-controls="mobile-log-tools-sheet"
+              >
+                <SlidersHorizontal className="h-6 w-6 shrink-0" aria-hidden />
+                <span className="max-w-[10rem] leading-tight text-left">Voice &amp; display</span>
+              </button>
+            )}
+            {!shiftSegmentOpen || !mobileToolsOpen ? (
+              <div
+                className={cn(
+                  "shrink-0 items-center gap-1",
+                  shiftSegmentOpen ? "hidden md:flex" : "flex"
+                )}
+              >
+                <VoiceCommandControl
+                  {...voiceCommandProps}
+                  buttonClassName={touchHeaderBtn}
+                  iconClassName={touchHeaderIcon}
+                />
+                <VoiceAlertsToggle
+                  enabled={voiceAlertsEnabled}
+                  onChange={setVoiceAlertsEnabled}
+                  buttonClassName={touchHeaderBtn}
+                  iconClassName={touchHeaderIcon}
+                />
+                <ThemeToggle className={touchHeaderBtn} iconClassName={touchHeaderIcon} />
+              </div>
+            ) : null}
           </div>
         </div>
+        {shiftSegmentOpen && mobileToolsOpen && (
+          <div
+            className="fixed inset-0 z-[45] md:hidden"
+            role="dialog"
+            aria-modal
+            aria-labelledby="mobile-log-tools-title"
+            id="mobile-log-tools-sheet"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 w-full h-full cursor-default border-0 bg-black/50 p-0"
+              aria-label="Dismiss voice and display tools"
+              onClick={() => setMobileToolsOpen(false)}
+            />
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-center pointer-events-none p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div
+                className="pointer-events-auto w-full max-w-md rounded-2xl border-2 border-emerald-600/70 dark:border-emerald-400/60 bg-white dark:bg-slate-900 shadow-2xl p-4 space-y-4"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 id="mobile-log-tools-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      Voice &amp; display
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Tap outside this panel to close. Voice confirm dialogs appear on top.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                    onClick={() => setMobileToolsOpen(false)}
+                    aria-label="Close"
+                  >
+                    <X className="h-7 w-7" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-5 pt-1">
+                  <VoiceCommandControl
+                    {...voiceCommandProps}
+                    buttonClassName={touchSheetBtn}
+                    iconClassName={touchSheetIcon}
+                  />
+                  <VoiceAlertsToggle
+                    enabled={voiceAlertsEnabled}
+                    onChange={setVoiceAlertsEnabled}
+                    buttonClassName={touchSheetBtn}
+                    iconClassName={touchSheetIcon}
+                  />
+                  <ThemeToggle className={touchSheetBtn} iconClassName={touchSheetIcon} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {forgottenActionReminder && (
           <div
             role="alert"

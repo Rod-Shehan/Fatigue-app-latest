@@ -29,6 +29,10 @@ type Props = {
   /** Called only after the user confirms the Alexa-style dialog (compliance write). */
   onConfirmIntent: (intent: VoiceIntent) => void;
   className?: string;
+  /** Extra classes for the mic button (e.g. larger touch target on mobile). */
+  buttonClassName?: string;
+  /** Extra classes for the Mic icon. */
+  iconClassName?: string;
   disabled?: boolean;
   /** When false, "end shift" / stop intent is ignored and a banner explains why (e.g. no open work/break). */
   allowStopIntent?: boolean;
@@ -38,6 +42,8 @@ export function VoiceCommandControl({
   voiceLabels,
   onConfirmIntent,
   className,
+  buttonClassName,
+  iconClassName,
   disabled,
   allowStopIntent = true,
 }: Props) {
@@ -291,7 +297,8 @@ export function VoiceCommandControl({
           className={cn(
             "h-11 w-11 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",
             listening && "ring-2 ring-cyan-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 animate-pulse",
-            className
+            className,
+            buttonClassName
           )}
           aria-pressed={listening}
           title={
@@ -309,7 +316,7 @@ export function VoiceCommandControl({
             else startListening();
           }}
         >
-          <Mic className="h-6 w-6" aria-hidden />
+          <Mic className={cn("h-6 w-6", iconClassName)} aria-hidden />
         </Button>
         {banner && (
           <p className="max-w-[min(18rem,85vw)] text-[10px] text-amber-800 dark:text-amber-200 text-right leading-snug">

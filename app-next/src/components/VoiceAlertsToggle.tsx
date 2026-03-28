@@ -10,12 +10,14 @@ type Props = {
   enabled: boolean;
   onChange: (enabled: boolean) => void;
   className?: string;
+  buttonClassName?: string;
+  iconClassName?: string;
 };
 
 /**
  * Toggle stored in localStorage; turning on runs a short test phrase (unlocks audio on many browsers).
  */
-export function VoiceAlertsToggle({ enabled, onChange, className }: Props) {
+export function VoiceAlertsToggle({ enabled, onChange, className, buttonClassName, iconClassName }: Props) {
   return (
     <Button
       type="button"
@@ -23,7 +25,8 @@ export function VoiceAlertsToggle({ enabled, onChange, className }: Props) {
       size="icon"
       className={cn(
         "h-11 w-11 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",
-        className
+        className,
+        buttonClassName
       )}
       aria-pressed={enabled}
       title={enabled ? "Voice alerts on — tap to turn off" : "Voice alerts off — tap to turn on"}
@@ -37,7 +40,11 @@ export function VoiceAlertsToggle({ enabled, onChange, className }: Props) {
         }
       }}
     >
-      {enabled ? <Volume2 className="h-6 w-6" aria-hidden /> : <VolumeX className="h-6 w-6" aria-hidden />}
+      {enabled ? (
+        <Volume2 className={cn("h-6 w-6", iconClassName)} aria-hidden />
+      ) : (
+        <VolumeX className={cn("h-6 w-6", iconClassName)} aria-hidden />
+      )}
     </Button>
   );
 }

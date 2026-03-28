@@ -194,6 +194,9 @@ export function SheetDetail({
   const [endShiftDialog, setEndShiftDialog] = useState<{ dayIndex: number } | null>(null);
   const [endShiftEndKms, setEndShiftEndKms] = useState("");
   const [endShiftError, setEndShiftError] = useState<string | null>(null);
+  /** LogBar work/break segment open — used to open large mobile tools on day-card tap. */
+  const [shiftSegmentOpenForMobile, setShiftSegmentOpenForMobile] = useState(false);
+  const [mobileLogToolsOpen, setMobileLogToolsOpen] = useState(false);
   const sheetDataRef = useRef(sheetData);
   sheetDataRef.current = sheetData;
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -759,6 +762,9 @@ export function SheetDetail({
               loading: complianceLoading,
             }}
             blockLoggingWorkReason={blockLoggingWorkReason}
+            onShiftSegmentChange={setShiftSegmentOpenForMobile}
+            mobileToolsOpen={mobileLogToolsOpen}
+            onMobileToolsOpenChange={setMobileLogToolsOpen}
           />
         </>
       )}
@@ -991,6 +997,20 @@ export function SheetDetail({
                     dayCardElsRef.current[idx] = el;
                   }}
                   className={sheetData.status !== "completed" ? "scroll-mt-48" : "scroll-mt-6"}
+                  onPointerDown={(e) => {
+                    if (sheetData.status === "completed") return;
+                    if (!shiftSegmentOpenForMobile || idx !== currentDayIndex) return;
+                    const t = e.target;
+                    if (!(t instanceof HTMLElement)) return;
+                    if (
+                      t.closest(
+                        "input, textarea, select, button, a, label, [role='button'], [role='slider'], canvas"
+                      )
+                    ) {
+                      return;
+                    }
+                    setMobileLogToolsOpen(true);
+                  }}
                 >
                   <DayEntry
                     dayIndex={idx}
