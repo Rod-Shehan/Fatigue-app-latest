@@ -99,7 +99,7 @@ describe("compliance scenarios — what the logic produces", () => {
     const days = emptyWeek();
     days[0] = dayWorkOnly(5); // Sun 5h work, no break
     const results = runComplianceChecks(days, { driverType: "solo" });
-    const breakWarning = results.find((r) => r.message.includes("20 min break") && r.type === "warning");
+    const breakWarning = results.find((r) => r.message.includes("20 min rest") && r.type === "warning");
     expect(breakWarning).toBeDefined();
     expect(breakWarning!.day).toBe("Sun");
   });

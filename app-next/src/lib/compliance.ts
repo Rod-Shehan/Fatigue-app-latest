@@ -13,6 +13,7 @@ import {
   normalizeCoverageFieldToMinutes,
   normalizeDayCoverageArrays,
 } from "@/lib/coverage/derive-minute-coverage";
+import { qualifyingRestMetForWorkAfterBreak } from "@/lib/five-hour-break-rule";
 
 export type ComplianceDayData = {
   work_time?: boolean[];
@@ -198,15 +199,13 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
 
         if (ev.type === "work") {
           if (pendingBreakSegments.length > 0) {
-            const totalMins = pendingBreakSegments.reduce((a, b) => a + b, 0);
-            const blocksOf10 = pendingBreakSegments.filter((m) => m >= 10).length;
-            const valid = totalMins >= 20 && blocksOf10 >= 1;
+            const valid = qualifyingRestMetForWorkAfterBreak(events.slice(0, i), pendingBreakSegments);
             if (!valid && !violationEmittedForCurrentBlock) {
               results.push({
                 type: "violation",
                 iconKey: "Coffee",
                 day: dayLabel,
-                message: `20 min break for 5h work not met`,
+                message: `20 min rest per 5h work not met (2×10 min or 1×20 min)`,
               });
               violationEmittedForCurrentBlock = true;
             }
@@ -244,7 +243,7 @@ function checkBreakFromDriving(days: ComplianceDayData[], results: ComplianceChe
           type: "warning",
           iconKey: "Coffee",
           day: dayLabel,
-          message: "20 min break per 5 hours work (incl. ≥10 min continuous)",
+          message: "20 min rest per 5h work (2×10 min or 1×20 min)",
         });
       }
     }

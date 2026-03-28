@@ -7,6 +7,7 @@ import { Briefcase, Coffee, Moon, Square, Clock, AlertTriangle, CheckCircle2, Tr
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { getTodayLocalDateString, getSheetDayDateString } from "@/lib/weeks";
 import { deriveMinuteGridFromEvents, MINUTES_PER_DAY } from "@/lib/coverage/derive-minute-coverage";
+import { qualifyingRestMetForWorkAfterBreak } from "@/lib/five-hour-break-rule";
 
 const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   work: { label: "Work", icon: Briefcase },
@@ -15,9 +16,7 @@ const EVENT_CONFIG: Record<ActivityKey, { label: string; icon: React.ComponentTy
   stop: { label: "End shift", icon: Square },
 };
 
-const MIN_BREAK_TOTAL_MINUTES = 20;
-  const MIN_BREAK_BLOCK_MINUTES = 10;
-  const BREAK_BLOCKS_REQUIRED = 1;
+const MIN_BREAK_BLOCK_MINUTES = 10;
 
 function formatTime(isoString: string) {
   return new Date(isoString).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -201,11 +200,9 @@ export default function EventLogger({
       const start = new Date(events[i].time).getTime();
       segments.unshift(Math.floor((end - start) / 60000));
     }
-    const total = segments.reduce((a, b) => a + b, 0);
-    const blocksOf10 = segments.filter((m) => m >= MIN_BREAK_BLOCK_MINUTES).length;
-    return { total, blocksOf10 };
+    return { segments };
   })();
-  const breakValid = breakRun.total >= MIN_BREAK_TOTAL_MINUTES && breakRun.blocksOf10 >= BREAK_BLOCKS_REQUIRED;
+  const breakValid = qualifyingRestMetForWorkAfterBreak(events, breakRun.segments);
 
   const deleteEvent = (idx: number) => {
     const newEvents = events.filter((_, i) => i !== idx);
@@ -228,9 +225,9 @@ export default function EventLogger({
             {formatDuration(elapsedMinutes)}
           </span>
           {currentType === "break" && (
-            <span className={`text-[10px] font-semibold flex items-center gap-1 ${breakRun.total >= MIN_BREAK_TOTAL_MINUTES && breakRun.blocksOf10 >= BREAK_BLOCKS_REQUIRED ? "text-emerald-600" : "text-amber-600"}`}>
-              {breakRun.total >= MIN_BREAK_TOTAL_MINUTES && breakRun.blocksOf10 >= BREAK_BLOCKS_REQUIRED ? <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-3 h-3 shrink-0" />}
-              20 min break per 5 hours work (incl. ≥10 min continuous)
+            <span className={`text-[10px] font-semibold flex items-center gap-1 ${breakValid ? "text-emerald-600" : "text-amber-600"}`}>
+              {breakValid ? <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-3 h-3 shrink-0" />}
+              20 min rest per 5h work (2×10 min or 1×20 min)
             </span>
           )}
         </div>

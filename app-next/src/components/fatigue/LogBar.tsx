@@ -14,8 +14,21 @@ import {
   getInsufficientNonWorkMessage,
 } from "@/lib/rolling-events";
 import { cn } from "@/lib/utils";
+import {
+  WORK_WINDOW_MIN,
+  emptySlots,
+  findWorkWindowStartMs,
+  getRestSlotsForBreakRange,
+  getMinutesBeforeDueFromSlots,
+  getPriorRestSlotsBeforeTime,
+  getAdditionalMinutesNeededForCurrentBreak,
+  qualifyingRestMetForWorkAfterBreak,
+  getBreakSplitBarState,
+  getRemainingBreakMinutesForDisplay,
+  isRestRequirementAlreadyMetBeforeCurrentBreak,
+} from "@/lib/five-hour-break-rule";
 
-const WORK_TARGET_MINUTES = 5 * 60;
+const WORK_TARGET_MINUTES = WORK_WINDOW_MIN;
 const BREAK_TARGET_MINUTES = 20;
 
 function formatCountdown(mins: number): string {
@@ -50,21 +63,13 @@ function getNextWorkBreakType(currentType: string | null): "work" | "break" {
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MIN_BREAK_TOTAL_MINUTES = 20;
 const MIN_BREAK_BLOCK_MINUTES = 10;
-const BREAK_BLOCKS_REQUIRED = 1;
 /** Minimum non-work time (hours) between shifts. */
 const MIN_NON_WORK_HOURS_BETWEEN_SHIFTS = 7;
 const CONFIRM_RESET_MS = 2500;
 
 function getDurationMinutes(start: string, end: string) {
   return Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000);
-}
-
-function breakBlockIsValid(segments: number[]): boolean {
-  const totalMins = segments.reduce((a, b) => a + b, 0);
-  const blocksOf10 = segments.filter((m) => m >= MIN_BREAK_BLOCK_MINUTES).length;
-  return totalMins >= MIN_BREAK_TOTAL_MINUTES && blocksOf10 >= BREAK_BLOCKS_REQUIRED;
 }
 
 /**
@@ -74,10 +79,8 @@ function breakBlockIsValid(segments: number[]): boolean {
 function getBreakWarningIfNeeded(events: { time: string; type: string }[], nowMs: number): string | null {
   if (events.length === 0) return null;
 
-  // Simulate the timeline up to "now" (end of last segment is now).
   let workMinsSinceValidBreak = 0;
   let breakSegments: number[] = [];
-  let breakStartMs: number | null = null;
 
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
@@ -86,115 +89,48 @@ function getBreakWarningIfNeeded(events: { time: string; type: string }[], nowMs
     const dur = Math.max(0, Math.floor((segEnd - segStart) / 60000));
 
     if (ev.type === "work") {
-      // If we just finished a break block, decide whether it reset the window.
       if (breakSegments.length > 0) {
-        if (breakBlockIsValid(breakSegments)) workMinsSinceValidBreak = 0;
+        const slice = events.slice(0, i);
+        if (qualifyingRestMetForWorkAfterBreak(slice, breakSegments)) workMinsSinceValidBreak = 0;
         breakSegments = [];
-        breakStartMs = null;
       }
       workMinsSinceValidBreak += dur;
     } else if (ev.type === "break") {
-      if (breakStartMs == null) breakStartMs = segStart;
       breakSegments.push(dur);
     } else {
-      // non_work or stop: reset the 5h window tracking.
       workMinsSinceValidBreak = 0;
       breakSegments = [];
-      breakStartMs = null;
     }
   }
 
-  // If we're about to start work after a break, the last event should be "break".
-  // Only warn if we already have ~5h of work banked and this last break block is not valid.
   const last = events[events.length - 1];
   if (last.type !== "break") return null;
   if (workMinsSinceValidBreak < WORK_TARGET_MINUTES) return null;
-  if (breakBlockIsValid(breakSegments)) return null;
-  return "20 min break per 5 hours work (incl. ≥10 min continuous)";
+  if (qualifyingRestMetForWorkAfterBreak(events, breakSegments)) return null;
+  return "20 min rest per 5h work (2×10 min or 1×20 min; breaks under 10 min count as work)";
 }
 
-/**
- * Break due by time: 5h from start of current 5h work window, minus 20 min if no 10+ min break
- * in that window, or minus 10 min if a 10+ min break has been taken in that window.
- */
 function getBreakDueByTime(events: { time: string; type: string }[], nowMs: number): number | null {
   if (events.length === 0) return null;
   const last = events[events.length - 1];
   if (last.type !== "work") return null;
-  const WORK_WINDOW_MIN = WORK_TARGET_MINUTES; // 300
-  let remainingWork = WORK_WINDOW_MIN;
-  let windowStartMs: number | null = null;
-  for (let i = events.length - 1; i >= 0; i--) {
-    const segEnd = i === events.length - 1 ? nowMs : new Date(events[i + 1].time).getTime();
-    const segStart = new Date(events[i].time).getTime();
-    const durationMin = Math.floor((segEnd - segStart) / 60000);
-    if (events[i].type === "work") {
-      if (remainingWork <= durationMin) {
-        windowStartMs = segEnd - remainingWork * 60 * 1000;
-        break;
-      }
-      remainingWork -= durationMin;
-    }
-  }
-  // If we haven't yet accumulated 5h work, the window is the current work run (break due from its start).
-  if (windowStartMs == null) windowStartMs = new Date(last.time).getTime();
-  let had10MinBreak = false;
-  for (let i = 0; i < events.length; i++) {
-    if (events[i].type !== "break") continue;
-    const segStart = new Date(events[i].time).getTime();
-    const segEnd = i + 1 < events.length ? new Date(events[i + 1].time).getTime() : nowMs;
-    const durationMin = Math.floor((segEnd - segStart) / 60000);
-    const overlapsWindow = segStart < nowMs && segEnd > windowStartMs;
-    if (durationMin >= MIN_BREAK_BLOCK_MINUTES && overlapsWindow) {
-      had10MinBreak = true;
-      break;
-    }
-  }
-  const minutesBeforeDue = had10MinBreak ? 10 : 20;
-  return windowStartMs + (WORK_WINDOW_MIN - minutesBeforeDue) * 60 * 1000;
+  const windowStartMs = findWorkWindowStartMs(events, nowMs);
+  if (windowStartMs == null) return null;
+  const slots = getRestSlotsForBreakRange(events, windowStartMs, nowMs);
+  const minutesBeforeDue = getMinutesBeforeDueFromSlots(slots);
+  return windowStartMs + (WORK_TARGET_MINUTES - minutesBeforeDue) * 60 * 1000;
 }
 
-/**
- * Break complete by time: start of current break + 10 min if a 10+ min break was already taken
- * in the preceding 5h work window, otherwise + 20 min.
- */
 function getBreakCompleteByTime(events: { time: string; type: string }[], nowMs: number): number | null {
   if (events.length === 0) return null;
   const last = events[events.length - 1];
   if (last.type !== "break") return null;
   const breakStartMs = new Date(last.time).getTime();
-  const WORK_WINDOW_MIN = WORK_TARGET_MINUTES;
-  let remainingWork = WORK_WINDOW_MIN;
-  let windowStartMs: number | null = null;
-  for (let i = events.length - 1; i >= 0; i--) {
-    const segEnd = i === events.length - 1 ? breakStartMs : new Date(events[i + 1].time).getTime();
-    const segStart = new Date(events[i].time).getTime();
-    const durationMin = Math.floor((segEnd - segStart) / 60000);
-    if (events[i].type === "work") {
-      if (remainingWork <= durationMin) {
-        windowStartMs = segEnd - remainingWork * 60 * 1000;
-        break;
-      }
-      remainingWork -= durationMin;
-    }
-  }
-  if (windowStartMs == null && events.length >= 2) windowStartMs = new Date(events[events.length - 2].time).getTime();
+  const windowStartMs = findWorkWindowStartMs(events, breakStartMs);
   if (windowStartMs == null) return null;
-  let had10MinBreakInWindow = false;
-  for (let i = 0; i < events.length; i++) {
-    if (events[i].type !== "break") continue;
-    const segStart = new Date(events[i].time).getTime();
-    const segEnd = i + 1 < events.length ? new Date(events[i + 1].time).getTime() : breakStartMs;
-    if (segEnd > breakStartMs) continue;
-    const durationMin = Math.floor((segEnd - segStart) / 60000);
-    const overlapsWindow = segStart < breakStartMs && segEnd > windowStartMs;
-    if (durationMin >= MIN_BREAK_BLOCK_MINUTES && overlapsWindow) {
-      had10MinBreakInWindow = true;
-      break;
-    }
-  }
-  const minutesForBreak = had10MinBreakInWindow ? 10 : 20;
-  return breakStartMs + minutesForBreak * 60 * 1000;
+  const prior = getPriorRestSlotsBeforeTime(events, windowStartMs, breakStartMs);
+  const additional = getAdditionalMinutesNeededForCurrentBreak(prior);
+  return breakStartMs + additional * 60 * 1000;
 }
 
 type DayData = {
@@ -266,6 +202,11 @@ export default function LogBar({
   const lastSpokenShiftBlockMsgRef = useRef<string | null>(null);
   /** Dedupe 5h insufficient-break modal speech (Strict Mode / reopen). */
   const lastSpokenFiveHourBreakRef = useRef<string | null>(null);
+  /**
+   * Voice confirm dialog already affirms the action — complete the same path as the second tap
+   * (onLogEvent / end shift) instead of only arming pendingType ("Tap again to log").
+   */
+  const voiceFinalizeNextLogRef = useRef(false);
 
   useEffect(() => {
     setVoiceAlertsEnabled(getVoiceAlertsEnabled());
@@ -300,11 +241,27 @@ export default function LogBar({
       const remaining = Math.max(0, target - Math.floor(elapsedMinutes));
       return { type: "work" as const, elapsed: elapsedMinutes, target, pct, remaining, color: ACTIVITY_THEME.work.hex, label: "5h" };
     }
-    if (currentType === "break") {
-      const target = BREAK_TARGET_MINUTES;
-      const pct = Math.min(100, (elapsedMinutes / target) * 100);
-      const remaining = Math.max(0, target - Math.floor(elapsedMinutes));
-      return { type: "break" as const, elapsed: elapsedMinutes, target, pct, remaining, color: ACTIVITY_THEME.break.hex, label: "20m" };
+    if (currentType === "break" && lastEvent) {
+      const breakStartMs = new Date(lastEvent.time).getTime();
+      const windowStartMs = findWorkWindowStartMs(eventsForDriver, breakStartMs);
+      const priorSlots =
+        windowStartMs != null
+          ? getPriorRestSlotsBeforeTime(eventsForDriver, windowStartMs, breakStartMs)
+          : emptySlots();
+      const split = getBreakSplitBarState(priorSlots, elapsedMinutes);
+      const remaining = getRemainingBreakMinutesForDisplay(priorSlots, elapsedMinutes);
+      return {
+        type: "break" as const,
+        elapsed: elapsedMinutes,
+        target: BREAK_TARGET_MINUTES,
+        pct: split.combinedPct,
+        leftPct: split.leftPct,
+        rightPct: split.rightPct,
+        restComplete: split.complete,
+        remaining,
+        color: ACTIVITY_THEME.break.hex,
+        label: "2×10m / 20m",
+      };
     }
     return null;
   })();
@@ -314,11 +271,11 @@ export default function LogBar({
     if (complianceButton.loading) return "default" as const;
     if (complianceButton.hasViolations) return "violation" as const;
     if (complianceButton.hasWarnings) return "warning" as const;
-    /** Break running but 20 min statutory bar not complete — between “warning” and full “OK” green. */
+    /** Break running but 5h rest rule not yet satisfied on the split bar — between “warning” and full “OK” green. */
     if (
       currentType === "break" &&
       contextualBar?.type === "break" &&
-      contextualBar.pct < 100
+      !contextualBar.restComplete
     ) {
       return "pending" as const;
     }
@@ -410,7 +367,12 @@ export default function LogBar({
     const pct = contextualBar.pct;
     const prev = prevBreakPctRef.current;
     prevBreakPctRef.current = pct;
-    if (prev !== null && prev < 100 && pct >= 100) {
+    if (
+      prev !== null &&
+      prev < 100 &&
+      contextualBar.type === "break" &&
+      contextualBar.restComplete
+    ) {
       speakVoiceAlert("Minimum break complete. You can resume work when ready.");
     }
   }, [currentType, contextualBar, voiceAlertsEnabled, tick]);
@@ -563,6 +525,36 @@ export default function LogBar({
         return;
       }
     }
+    if (voiceFinalizeNextLogRef.current) {
+      if (type === "work") {
+        const insufficientBreakMsg = getBreakWarningIfNeeded(eventsForDriver, Date.now());
+        if (insufficientBreakMsg) {
+          setWorkWarning({
+            message: insufficientBreakMsg,
+            confirmLabel: "Log work anyway",
+            subtext: "This will log work now.",
+            onConfirm: () => {
+              setWorkWarning(null);
+              clearPending();
+              const driverForEvent: "primary" | "second" | undefined =
+                driverType === "two_up" ? activeDriver : undefined;
+              onLogEvent(currentDayIndex, type, driverForEvent);
+            },
+            onCancel: clearPending,
+          });
+          return;
+        }
+      }
+      clearPending();
+      if (type === "stop" && onEndShiftRequest) {
+        onEndShiftRequest(currentDayIndex);
+        return;
+      }
+      const driverForEvent: "primary" | "second" | undefined =
+        driverType === "two_up" && type === "work" ? activeDriver : undefined;
+      onLogEvent(currentDayIndex, type, driverForEvent);
+      return;
+    }
     setPendingType(type);
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     resetTimerRef.current = setTimeout(clearPending, CONFIRM_RESET_MS);
@@ -657,6 +649,9 @@ export default function LogBar({
                   : "CURRENT ACTIVITY WORK - BREAK DUE";
               })()}
               {contextualBar.type === "break" && (() => {
+                if (isRestRequirementAlreadyMetBeforeCurrentBreak(eventsForDriver)) {
+                  return "CURRENT ACTIVITY BREAK — REST REQUIREMENT ALREADY MET (THIS WORK WINDOW)";
+                }
                 const completeByMs = getBreakCompleteByTime(eventsForDriver, Date.now());
                 const timeStr =
                   completeByMs != null
@@ -667,8 +662,8 @@ export default function LogBar({
                       })
                     : null;
                 return timeStr != null
-                  ? `CURRENT ACTIVITY BREAK - COMPLETE BY ${timeStr}`
-                  : "CURRENT ACTIVITY BREAK - 20 MIN MINIMUM";
+                  ? `CURRENT ACTIVITY BREAK — COMPLETE BY ${timeStr} (2×10 MIN OR 1×20 MIN)`
+                  : "CURRENT ACTIVITY BREAK — 2×10 MIN OR 1×20 MIN";
               })()}
             </span>
           </div>
@@ -682,28 +677,53 @@ export default function LogBar({
               )}
             >
               <div className="absolute inset-0 rounded-lg">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-lg transition-all duration-300"
-                  style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
-                />
-                {contextualBar.type === "work" && [1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="absolute top-0 bottom-0 w-px bg-white/60"
-                    style={{ left: `${(i / 5) * 100}%` }}
-                    aria-hidden
-                  />
-                ))}
-                {contextualBar.type === "break" && [1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="absolute top-0 bottom-0 w-px bg-white/60"
-                    style={{ left: `${(i / 4) * 100}%` }}
-                    aria-hidden
-                  />
-                ))}
+                {contextualBar.type === "work" && (
+                  <>
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-lg transition-all duration-300"
+                      style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
+                    />
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className="absolute top-0 bottom-0 w-px bg-white/60"
+                        style={{ left: `${(i / 5) * 100}%` }}
+                        aria-hidden
+                      />
+                    ))}
+                  </>
+                )}
+                {contextualBar.type === "break" && (
+                  <>
+                    <div className="absolute inset-0 flex rounded-lg overflow-hidden">
+                      <div className="relative h-full w-1/2 border-r border-white/50">
+                        <div
+                          className="absolute inset-y-0 left-0 transition-all duration-300"
+                          style={{
+                            width: `${contextualBar.leftPct}%`,
+                            backgroundColor: contextualBar.color,
+                          }}
+                        />
+                      </div>
+                      <div className="relative h-full w-1/2">
+                        <div
+                          className="absolute inset-y-0 left-0 transition-all duration-300"
+                          style={{
+                            width: `${contextualBar.rightPct}%`,
+                            backgroundColor: contextualBar.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div
+                      className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-px bg-white/70 z-[1]"
+                      aria-hidden
+                    />
+                  </>
+                )}
               </div>
-              {contextualBar.pct < 100 && (
+              {((contextualBar.type === "work" && contextualBar.pct < 100) ||
+                (contextualBar.type === "break" && contextualBar.pct < 100)) && (
                 <div
                   className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-black dark:bg-white border-2 border-slate-400 dark:border-slate-300 shadow-md pointer-events-none z-10"
                   style={{ left: `${contextualBar.pct}%` }}
@@ -830,7 +850,14 @@ export default function LogBar({
                 break: "Log break",
                 stop: EVENT_LABELS.stop,
               }}
-              onConfirmIntent={(intent) => handleLog(intent)}
+              onConfirmIntent={(intent) => {
+                voiceFinalizeNextLogRef.current = true;
+                try {
+                  handleLog(intent);
+                } finally {
+                  voiceFinalizeNextLogRef.current = false;
+                }
+              }}
             />
             <VoiceAlertsToggle enabled={voiceAlertsEnabled} onChange={setVoiceAlertsEnabled} />
             <ThemeToggle />
