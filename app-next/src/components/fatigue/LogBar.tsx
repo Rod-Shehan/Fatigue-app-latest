@@ -282,6 +282,9 @@ export default function LogBar({
     return "ok" as const;
   })();
 
+  /** Colored compliance header (amber / lime / emerald): use a dark track + saturated fills so the bar stays visible. */
+  const barOnColoredHeader = complianceTone !== "default";
+
   /** Saturated bands + thick border for single-glance compliance (outdoor / cab visibility). */
   const headerShellClass =
     complianceTone === "violation" || complianceTone === "warning"
@@ -633,7 +636,7 @@ export default function LogBar({
       {contextualBar && (
         <div className="pt-1">
           <div className="mb-0.5 flex items-start gap-2 min-w-0">
-            <span className="min-w-0 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="min-w-0 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {contextualBar.type === "work" && (() => {
                 const breakDueByMs = getBreakDueByTime(eventsForDriver, Date.now());
                 const timeStr =
@@ -671,22 +674,32 @@ export default function LogBar({
             <div
               className={cn(
                 "relative h-8 min-h-8 flex-1 min-w-0 rounded-lg overflow-hidden",
-                complianceTone === "default"
-                  ? "bg-slate-100 dark:bg-slate-700"
-                  : "bg-black/15 dark:bg-black/25 ring-1 ring-black/10 dark:ring-white/20"
+                barOnColoredHeader
+                  ? "bg-black/50 ring-1 ring-white/35 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)] dark:bg-black/55 dark:ring-white/25"
+                  : "bg-slate-100 dark:bg-slate-700"
               )}
             >
               <div className="absolute inset-0 rounded-lg">
                 {contextualBar.type === "work" && (
                   <>
                     <div
-                      className="absolute inset-y-0 left-0 rounded-lg transition-all duration-300"
-                      style={{ width: `${contextualBar.pct}%`, backgroundColor: contextualBar.color }}
+                      className={cn(
+                        "absolute inset-y-0 left-0 rounded-lg transition-all duration-300",
+                        barOnColoredHeader &&
+                          "bg-emerald-400 shadow-sm dark:bg-emerald-300 dark:shadow-[0_0_0_1px_rgba(0,0,0,0.2)]"
+                      )}
+                      style={{
+                        width: `${contextualBar.pct}%`,
+                        ...(barOnColoredHeader ? {} : { backgroundColor: contextualBar.color }),
+                      }}
                     />
                     {[1, 2, 3, 4].map((i) => (
                       <div
                         key={i}
-                        className="absolute top-0 bottom-0 w-px bg-white/60"
+                        className={cn(
+                          "absolute top-0 bottom-0 w-px",
+                          barOnColoredHeader ? "bg-white/45" : "bg-white/60"
+                        )}
                         style={{ left: `${(i / 5) * 100}%` }}
                         aria-hidden
                       />
@@ -696,27 +709,43 @@ export default function LogBar({
                 {contextualBar.type === "break" && (
                   <>
                     <div className="absolute inset-0 flex rounded-lg overflow-hidden">
-                      <div className="relative h-full w-1/2 border-r border-white/50">
+                      <div
+                        className={cn(
+                          "relative h-full w-1/2",
+                          barOnColoredHeader ? "border-r border-white/35" : "border-r border-white/50"
+                        )}
+                      >
                         <div
-                          className="absolute inset-y-0 left-0 transition-all duration-300"
+                          className={cn(
+                            "absolute inset-y-0 left-0 transition-all duration-300",
+                            barOnColoredHeader &&
+                              "bg-amber-300 shadow-sm dark:bg-amber-400 dark:shadow-[0_0_0_1px_rgba(0,0,0,0.2)]"
+                          )}
                           style={{
                             width: `${contextualBar.leftPct}%`,
-                            backgroundColor: contextualBar.color,
+                            ...(barOnColoredHeader ? {} : { backgroundColor: contextualBar.color }),
                           }}
                         />
                       </div>
                       <div className="relative h-full w-1/2">
                         <div
-                          className="absolute inset-y-0 left-0 transition-all duration-300"
+                          className={cn(
+                            "absolute inset-y-0 left-0 transition-all duration-300",
+                            barOnColoredHeader &&
+                              "bg-amber-300 shadow-sm dark:bg-amber-400 dark:shadow-[0_0_0_1px_rgba(0,0,0,0.2)]"
+                          )}
                           style={{
                             width: `${contextualBar.rightPct}%`,
-                            backgroundColor: contextualBar.color,
+                            ...(barOnColoredHeader ? {} : { backgroundColor: contextualBar.color }),
                           }}
                         />
                       </div>
                     </div>
                     <div
-                      className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-px bg-white/70 z-[1]"
+                      className={cn(
+                        "absolute top-0 bottom-0 left-1/2 w-px -translate-x-px z-[1]",
+                        barOnColoredHeader ? "bg-white/90" : "bg-white/70"
+                      )}
                       aria-hidden
                     />
                   </>
@@ -725,7 +754,12 @@ export default function LogBar({
               {((contextualBar.type === "work" && contextualBar.pct < 100) ||
                 (contextualBar.type === "break" && contextualBar.pct < 100)) && (
                 <div
-                  className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-black dark:bg-white border-2 border-slate-400 dark:border-slate-300 shadow-md pointer-events-none z-10"
+                  className={cn(
+                    "absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full shadow-md pointer-events-none z-10",
+                    barOnColoredHeader
+                      ? "bg-white ring-2 ring-emerald-950/90 dark:ring-white/90"
+                      : "bg-black dark:bg-white border-2 border-slate-400 dark:border-slate-300"
+                  )}
                   style={{ left: `${contextualBar.pct}%` }}
                   title="Current progress"
                   aria-hidden
