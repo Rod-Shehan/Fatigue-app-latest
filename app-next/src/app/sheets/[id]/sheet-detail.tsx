@@ -60,6 +60,8 @@ import {
   getSheetDayDateString,
   getPreviousWeekSunday,
   getRegulatoryTodayYmd,
+  getThisWeekSunday,
+  normalizeWeekDateString,
 } from "@/lib/weeks";
 import { getProspectiveWorkWarnings, getSlotOffsetWithinTodayLocal } from "@/lib/compliance";
 import { getCurrentPosition, BEST_EFFORT_OPTIONS } from "@/lib/geo";
@@ -67,6 +69,7 @@ import { validateDayKms, getMinAllowedStartKms, validateSheetKms } from "@/lib/r
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/jurisdiction";
 import { MINUTES_PER_DAY, normalizeDayCoverageArrays } from "@/lib/coverage/derive-minute-coverage";
 import { getDisplayNameFromSession } from "@/lib/session-display-name";
+import { formatUnsignedPastWeeksBlockMessage } from "@/lib/product-copy";
 
 const EMPTY_DAY = (): DayData => ({
   day_label: "",
@@ -79,14 +82,6 @@ const EMPTY_DAY = (): DayData => ({
   breaks: Array(MINUTES_PER_DAY).fill(false),
   non_work: Array(MINUTES_PER_DAY).fill(false),
 });
-
-function getThisWeekSunday() {
-  const today = new Date();
-  const day = today.getDay();
-  const sunday = new Date(today);
-  sunday.setDate(today.getDate() - day);
-  return sunday.toISOString().split("T")[0];
-}
 
 /** Current day index (0–6) for the sheet week from regulatory "today" (WA: Perth calendar); not user-selectable. */
 function getCurrentDayIndex(weekStarting: string, todayYmd: string): number {
@@ -341,6 +336,30 @@ export function SheetDetail({
       ) || null
     );
   }, [allSheets, sheetData.driver_name, sheetData.week_starting, sheetId]);
+
+  /** Past weeks (before current Sunday) for this driver that are not signed — block new work until signed. */
+  const unsignedPastWeeksForDriver = useMemo(() => {
+    if (isManager) return [];
+    const me = (sessionDriverName || sheetData.driver_name || "").trim().toLowerCase();
+    if (!me) return [];
+    const thisSun = getThisWeekSunday();
+    return allSheets.filter((s) => {
+      const primary = s.driver_name?.trim().toLowerCase();
+      const second = s.second_driver?.trim().toLowerCase();
+      const isMySheet = primary === me || second === me;
+      return (
+        isMySheet &&
+        s.week_starting &&
+        normalizeWeekDateString(s.week_starting) < thisSun &&
+        s.status !== "completed"
+      );
+    });
+  }, [allSheets, sheetData.driver_name, sessionDriverName, isManager]);
+
+  const blockLoggingWorkReason = useMemo(() => {
+    if (isManager || unsignedPastWeeksForDriver.length === 0) return null;
+    return formatUnsignedPastWeeksBlockMessage(unsignedPastWeeksForDriver.length);
+  }, [isManager, unsignedPastWeeksForDriver.length]);
 
   const compliancePayload = useMemo(() => {
     const slotOffsetWithinToday = getSlotOffsetWithinTodayLocal(now, sheetData.jurisdiction_code);
@@ -742,6 +761,7 @@ export function SheetDetail({
               hasWarnings: hasComplianceWarnings,
               loading: complianceLoading,
             }}
+            blockLoggingWorkReason={blockLoggingWorkReason}
           />
         </>
       )}

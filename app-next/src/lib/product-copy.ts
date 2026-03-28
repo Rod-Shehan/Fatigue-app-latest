@@ -27,3 +27,9 @@ export const OPENING_DISCLAIMER_COMPACT =
 /** Future: block logging work at NOW until past unsigned weeks are signed (copy only). */
 export const UNSIGNED_WEEKS_GATE_HINT =
   "You may need to sign past weekly records before starting a new shift entry.";
+
+/** Driver-facing message when work logging is blocked due to unsigned past weeks. */
+export function formatUnsignedPastWeeksBlockMessage(count: number): string {
+  if (count <= 0) return "";
+  return `You have ${count} past week record${count === 1 ? "" : "s"} that need your signature before you log new work. Sign each from Your Sheets, then return here.`;
+}

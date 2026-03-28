@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Briefcase, Coffee, Moon, Square, ClipboardList, X, Loader2, AlertTriangle, Clock } from "lucide-react";
 import { ACTIVITY_THEME, type ActivityKey } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -219,6 +220,8 @@ export default function LogBar({
   forgottenActionReminder,
   /** Header tint + icon (right side); tap to jump to compliance panel. */
   complianceButton,
+  /** When set, tapping Work / Start shift is blocked until driver signs past weeks (see Your Sheets). */
+  blockLoggingWorkReason,
 }: {
   days: DayData[];
   currentDayIndex: number;
@@ -249,7 +252,9 @@ export default function LogBar({
     hasWarnings?: boolean;
     loading?: boolean;
   };
+  blockLoggingWorkReason?: string | null;
 }) {
+  const router = useRouter();
   const [pendingType, setPendingType] = useState<string | null>(null);
   const [activeDriver, setActiveDriver] = useState<"primary" | "second">("primary");
   const [workWarning, setWorkWarning] = useState<{ message: string; confirmLabel: string; onConfirm: () => void; onCancel?: () => void; subtext?: string } | null>(null);
@@ -372,6 +377,14 @@ export default function LogBar({
       return;
     }
 
+    if (workWarning.confirmLabel === "Go to Your Sheets") {
+      const key = workWarning.message;
+      if (lastSpokenShiftBlockMsgRef.current === key) return;
+      lastSpokenShiftBlockMsgRef.current = key;
+      speakVoiceAlert(workWarning.message);
+      return;
+    }
+
     /** 5h rule: only this modal uses confirm "Log work anyway" + this subtext (compliance uses different copy). */
     if (
       workWarning.confirmLabel === "Log work anyway" &&
@@ -423,6 +436,19 @@ export default function LogBar({
 
   const handleLog = (type: string) => {
     if (type === currentType) return;
+
+    if (type === "work" && blockLoggingWorkReason) {
+      setWorkWarning({
+        message: blockLoggingWorkReason,
+        confirmLabel: "Go to Your Sheets",
+        onConfirm: () => {
+          setWorkWarning(null);
+          router.push("/sheets");
+        },
+        onCancel: () => setWorkWarning(null),
+      });
+      return;
+    }
 
     if (
       type === "stop" &&
